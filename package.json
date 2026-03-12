@@ -1,0 +1,24 @@
+{
+  "name": "movieticketbackend",
+  "version": "1.0.0",
+  "description": "Online Movie Booking Backend Microservive",
+  "keywords": [
+    "Node",
+    "js",
+    "Booking",
+    "App"
+  ],
+  "license": "ISC",
+  "author": "Pothuraju Govindha",
+  "type": "commonjs",
+  "main": "src/app.js",
+  "scripts": {
+    "dev": "nodemon src/app.js",
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "mongoose": "^9.3.0",
+    "nodemon": "^3.1.14"
+  }
+}
