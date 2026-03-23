@@ -5,15 +5,13 @@ const bcrypt = require("bcrypt");
 // -- 🔐 ADMIN ROUTERS
 // - POST /auth/signup      → Register new user
 // - POST /auth/login       → Login user (JWT / session)
+// - POST /auth/logOut     → Logout user (JWT / session)
 
 
 const { validateAdminRegister } = require("../validators/adminValidator");
 const { validateAdminLogin } = require("../validators/adminValidator");
 
 const Admin = require("../models/AdminModel");
-
-// -- 🔐 ADMIN ROUTERS
-// POST /admin/register → Register admin
 
 adminRouter.post("/admin/register", async (req, res) => {
   try {
@@ -167,6 +165,13 @@ adminRouter.post("/admin/login", async (req, res) => {
     });
   }
 });
+
+adminRouter.post("/admin/logout", (req, res) => {
+  res.cookie("token",null,{httpOnly:true,secure: true,
+    sameSite: "None", expires: new Date(Date.now())});
+  res.send("Logout Sucessful");
+});
+
 
 
 module.exports = adminRouter;

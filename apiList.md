@@ -1,127 +1,136 @@
--- 🎬 Scalable Movie/Event Booking System – API Documentation
+# QuickMovie Backend API Documentation
 
-Base URL
+The QuickMovie Backend is a RESTful API built with Node.js and Express, providing a robust admin-focused movie ticket booking management system.
 
-/api/v1
-🔐 AUTHENTICATION ROUTER
+**Base URL**: `http://localhost:3000/api/admin`
 
-Handles user authentication and session management.
+---
 
-POST /auth/register → Register new user account
-POST /auth/login → Login user and return JWT token
-POST /auth/logout → Logout user (invalidate token/session)
-POST /auth/refresh → Refresh JWT access token
+## 🔐 Authentication
 
-Example:
+Most endpoints are protected and require a `Bearer` token in the `Authorization` header.
 
-POST /auth/register → Create new user (name, email, password, phone)
-POST /auth/login → Authenticate user and generate JWT
-POST /auth/logout → Remove session / blacklist token
-POST /auth/refresh → Generate new access token using refresh token
-👤 USER ROUTER
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/auth/register` | `POST` | Public | Register a new admin account |
+| `/auth/login` | `POST` | Public | Login and receive JWT in cookies/headers |
+| `/auth/logout` | `POST` | Protected | Invalidate session |
+| `/auth/change-password` | `PATCH` | Protected | Change current admin password | | ( not completed)
 
-Handles user profile and account data.
+---
 
-GET /users/me → Get current logged-in user profile
-PUT /users/me → Update profile details (name, phone, avatar)
-DELETE /users/me → Delete user account
-🎟 BOOKING HISTORY ROUTER
-GET /users/me/bookings → Get all bookings of current user
-GET /users/me/bookings/upcoming → Get upcoming bookings
-GET /users/me/bookings/past → Get past bookings
-🔎 SEARCH ROUTER
+## 🎭 Theaters
 
-Handles event discovery and filtering (powered by Elasticsearch).
+Manage theaters and their associated screens.
 
-GET /search → Search events by name, location, or date
-GET /search/trending → Get trending or popular events
-GET /search/genres → Get available event genres
-GET /search/cities → Get available cities for events
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/theaters` | `GET` | Protected | List all theaters |
+| `/theaters` | `POST` | Protected | Create a new theater |
+| `/theaters/:id` | `GET` | Protected | Get theater details by ID |
+| `/theaters/:id` | `PATCH` | Protected | Update theater details |
+| `/theaters/:id` | `DELETE` | Protected | Delete a theater |
+| `/theaters/:theaterId/screens` | `GET` | Protected | Get all screens for a specific theater |
+| `/theaters/:theaterId/screens` | `POST` | Protected | Add a new screen to a theater |
 
-Example:
+---
 
-GET /search?q=spiderman&location=hyderabad&date=2026-04-20
-🎬 EVENT ROUTER
+## 📺 Screens & Seats
 
-Handles event metadata (movies, concerts, etc.).
+Manage screens and generate seat layouts.
 
-GET /events → Get list of events (paginated)
-GET /events/:eventId → Get detailed event information
-GET /events/:eventId/showtimes → Get showtimes for an event
-GET /events/trending → Get trending events
-🏟 VENUE ROUTER
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/screens/:id` | `PATCH` | Protected | Update screen details |
+| `/screens/:id` | `DELETE` | Protected | Delete a screen |
+| `/screens/:id/seats` | `GET` | Protected | Get all seats for a screen |
+| `/screens/:id/seats/generate` | `POST` | Protected | Generate seat layout for a screen |
 
-Handles venue information (theatres / concert halls).
+### Seat Generation Body
+```json
+{
+  "rows": ["A", "B", "C"],
+  "cols": 10,
+  "categories": {
+    "A": "VIP",
+    "B": "Gold",
+    "C": "Silver"
+  }
+}
+```
 
-GET /venues → Get all venues
-GET /venues/:venueId → Get venue details
-GET /venues/:venueId/showtimes → Get showtimes for a venue
-⏰ SHOWTIME ROUTER
+---
 
-Handles showtime information for events.
+## 🎬 Movies
 
-GET /showtimes/:showId → Get showtime details
-GET /showtimes/:showId/seats → Get seat map for a showtime
-GET /showtimes/:showId/availability → Get seat availability summary
+Full CRUD operations for movie management.
 
-Example:
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/movies` | `GET` | Protected | List all movies |
+| `/movies` | `POST` | Protected | Add a new movie |
+| `/movies/:id` | `GET` | Protected | Get movie details by ID |
+| `/movies/:id` | `PATCH` | Protected | Update movie details |
+| `/movies/:id` | `DELETE` | Protected | Remove a movie |
 
-GET /showtimes/s123/seats → Fetch seat grid with seat status
+---
 
-Seat status types:
+## 📅 Shows
 
-AVAILABLE
-HELD
-BOOKED
-💺 SEAT ROUTER
+Schedule and manage movie shows.
 
-Handles seat-level operations.
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/shows` | `GET` | Protected | List all scheduled shows |
+| `/shows` | `POST` | Protected | Schedule a new show |
+| `/shows/:id` | `GET` | Protected | Get show details by ID |
+| `/shows/:id` | `PATCH` | Protected | Update show details (price map, status) |
 
-GET /seats/:showId → Get seats for showtime
-GET /seats/:showId/available → Get available seats only
-GET /seats/:showId/booked → Get booked seats
-🪑 SEAT RESERVATION ROUTER
+---
 
-Handles temporary seat holds before booking confirmation.
+## 💰 Pricing
 
-POST /bookings/reserve → Reserve seats (create seat hold)
-DELETE /bookings/reserve/:holdId → Release reserved seats
-GET /bookings/reserve/:holdId → Get hold details
+Manage pricing configurations.
 
-Example flow:
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/pricing` | `GET` | Protected | Get all pricing models |
+| `/pricing` | `POST` | Protected | Create a pricing entry |
+| `/pricing/:id` | `PATCH` | Protected | Update pricing details |
+| `/pricing/:id` | `DELETE` | Protected | Remove a pricing entry |
 
-POST /bookings/reserve → User selects seats
-System locks seats using Redis
-Seat hold expires after 10–15 minutes
-🎫 BOOKING ROUTER
+---
 
-Handles confirmed bookings.
+## 🎟️ Bookings
 
-POST /bookings/confirm → Confirm booking after payment
-GET /bookings/:bookingId → Get booking details
-DELETE /bookings/:bookingId → Cancel booking
-GET /bookings/:bookingId/ticket → Get ticket with QR code
-💳 PAYMENT ROUTER
+Monitor and manage user bookings.
 
-Handles payment processing.
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/bookings` | `GET` | Protected | List all bookings |
+| `/bookings/:id` | `GET` | Protected | Get booking details |
+| `/bookings/:id/cancel` | `PATCH` | Protected | Cancel a booking |
 
-(Using Stripe or Razorpay)
+---
 
-POST /payments/create → Create payment intent
-POST /payments/confirm → Confirm payment
-POST /payments/refund → Initiate refund
-POST /webhooks/payment → Payment gateway webhook
-🛠 ADMIN ROUTER
+## 📊 Analytics & Logs
 
-Admin operations for managing events.
+System-wide analytics and audit trail.
 
-POST /admin/events → Create new event
-PUT /admin/events/:eventId → Update event
-DELETE /admin/events/:eventId → Delete event
-Showtime Management
-POST /admin/showtimes → Create showtime
-PUT /admin/showtimes/:showId → Update showtime
-DELETE /admin/showtimes/:showId → Delete showtime
-Seat Management
-POST /admin/showtimes/:showId/seats → Generate seats for showtime
-PATCH /admin/showtimes/:showId/seats → Update seat layout
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/analytics/overview` | `GET` | Protected | Get system summary (theaters, movies, etc.) |
+| `/analytics/revenue` | `GET` | Protected | Get revenue analytics |
+| `/audit-logs` | `GET` | Protected | View user/admin action history |
+
+---
+
+## 🚀 Error Handling
+
+Errors follow a standard format:
+```json
+{
+  "success": false,
+  "message": "Detailed error message"
+}
+```
