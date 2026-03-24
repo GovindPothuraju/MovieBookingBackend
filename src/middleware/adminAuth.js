@@ -16,7 +16,7 @@ const adminAuth  = async (req, res, next) => {
 
     const cookie= jwt.verify(token, process.env.JWT_SECRET);
     const admin = await Admin.findById(cookie.id);
-    if(!admin){
+    if(!admin || !admin.isActive){
       return res.status(401).json({
         success: false,
         message: "Admin not found. Invalid token.",
@@ -35,4 +35,27 @@ const adminAuth  = async (req, res, next) => {
   }
 };
 
-module.exports={adminAuth};
+// ADMIN ROLE CHECK (OPTIONAL BUT CLEAN)
+const adminMiddleware = (req, res, next) => {
+  try {
+    if (!req.user || req.user.role !== "ADMIN") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+      });
+    }
+
+    next();
+
+  } catch (err) {
+    console.error("Admin Middleware Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+
+module.exports={adminAuth , adminMiddleware};

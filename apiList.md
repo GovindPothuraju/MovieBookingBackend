@@ -25,13 +25,20 @@ Manage theaters and their associated screens.
 
 | Endpoint | Method | Auth | Description |
 | :--- | :--- | :--- | :--- |
-| `/theaters` | `GET` | Protected | List all theaters |
+| `/theaters` | `GET` | Protected | List all theaters | 
+ -- GET /theaters
 | `/theaters` | `POST` | Protected | Create a new theater |
+-- POST /theaters
 | `/theaters/:id` | `GET` | Protected | Get theater details by ID |
+-- GET /theaters/:id
 | `/theaters/:id` | `PATCH` | Protected | Update theater details |
+-- PATCH /theaters/:id
 | `/theaters/:id` | `DELETE` | Protected | Delete a theater |
+-- DELETE /theaters/:id
 | `/theaters/:theaterId/screens` | `GET` | Protected | Get all screens for a specific theater |
+-- GET /theaters/:theaterId/screens
 | `/theaters/:theaterId/screens` | `POST` | Protected | Add a new screen to a theater |
+-- POST /theaters/:theaterId/screens
 
 ---
 

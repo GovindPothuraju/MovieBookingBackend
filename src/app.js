@@ -7,6 +7,9 @@ const cookieParser = require("cookie-parser");
 
 const connectDB = require('./config/databse');
 const adminRoutes = require('./routers/adminRoutes');
+const theaterLoginRoutes = require('./routers/theaterLoginRoutes');
+const theaterRoutes = require('./routers/theaterRouter');
+const screenRoutes = require('./routers/screenRoutes');
 
 
 app.use(cors());
@@ -16,6 +19,9 @@ app.use(cookieParser());
 
 
 app.use('/',adminRoutes);
+app.use('/',theaterLoginRoutes);
+app.use('/',theaterRoutes);
+app.use('/',screenRoutes);
 
 
 app.use("/hello",(req,res)=>{
