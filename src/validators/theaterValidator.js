@@ -59,6 +59,7 @@ const validateCreateTheater = (req) => {
     }
 
     return {
+      isValid: true,
       value: {
         name: name.trim(),
         city: city.trim(),
@@ -74,4 +75,8 @@ const validateCreateTheater = (req) => {
   } catch (error) {
     return { error: "Validation failed" };
   }
+};
+
+module.exports = {
+  validateCreateTheater
 };

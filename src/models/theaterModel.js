@@ -48,7 +48,7 @@ const theaterSchema = new mongoose.Schema(
   }
 );
 
-theaterSchema.index({ name: 1, city: 1 }, { unique: true });
+theaterSchema.index({ name: 1, city: 1 ,"address.street":1}, { unique: true });
 theaterSchema.index({ city: 1 });
 theaterSchema.index({ isActive: 1 });
 
