@@ -48,7 +48,7 @@ const screenSchema = new mongoose.Schema(
     },
     screenType: {
       type: String,
-      enum: ['STANDARD', 'IMAX', 'DOLBY', '4DX', 'DRIVE_IN'],
+      enum: ['STANDARD', 'IMAX', 'DOLBY', '4DX', 'DRIVE_IN','2D'],
       default: 'STANDARD',
     },
     isActive: {
@@ -60,21 +60,18 @@ const screenSchema = new mongoose.Schema(
       default: false,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
-
 
 screenSchema.index({ theaterId: 1, name: 1 }, { unique: true });
 screenSchema.index({ isActive: 1 });
 
-
-screenSchema.pre('save', function (next) {
-  if (this.isModified('rows') || this.isModified('columns')) {
+// Pre-save hook to calculate totalSeats
+screenSchema.pre('save', async function () {
+  // Calculate totalSeats whenever rows or columns are present
+  if (this.rows != null && this.columns != null) {
     this.totalSeats = this.rows * this.columns;
   }
-  next();
 });
 
 module.exports = mongoose.model('Screen', screenSchema);

@@ -1,70 +1,58 @@
 const validator = require("validator");
 
 const MAX_SEATS = 500;
-
-const SCREEN_TYPES = ["STANDARD", "IMAX", "DOLBY", "4DX", "DRIVE_IN"];
-
+const SCREEN_TYPES = ["2D","STANDARD", "IMAX", "DOLBY", "4DX", "DRIVE_IN"]; // Consistent with schema
 
 const validateCreateScreen = (req) => {
   try {
     const { theaterId } = req.params;
-    let { name, rows, columns, screenType } = req.body;
+    const { name, rows, columns, screenType } = req.body;
 
-    // 🔹 Theater ID
-    if (!validator.isMongoId(theaterId)) {
+    // Theater ID
+    if (!theaterId || !validator.isMongoId(theaterId)) {
       return { error: "Invalid theater ID" };
     }
 
-    // 🔹 Name
-    if (!name || name.trim().length === 0) {
+    // Name
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return { error: "Screen name is required" };
     }
-
     if (name.trim().length > 50) {
       return { error: "Screen name cannot exceed 50 characters" };
     }
 
-    // 🔹 Rows
-    if (rows === undefined || rows === null) {
-      return { error: "Rows is required" };
+    // Rows
+    const parsedRows = Number(rows);
+    if (isNaN(parsedRows) || !Number.isInteger(parsedRows) || parsedRows < 1 || parsedRows > 26) {
+      return { error: "Rows must be an integer between 1 and 26" };
     }
 
-    rows = Number(rows);
-
-    if (!Number.isInteger(rows) || rows < 1 || rows > 26) {
-      return { error: "Rows must be between 1 and 26" };
-    }
-
-    // 🔹 Columns
-    if (columns === undefined || columns === null) {
-      return { error: "Columns is required" };
-    }
-
-    columns = Number(columns);
-
-    if (!Number.isInteger(columns) || columns < 1) {
+    // Columns
+    const parsedColumns = Number(columns);
+    if (isNaN(parsedColumns) || !Number.isInteger(parsedColumns) || parsedColumns < 1) {
       return { error: "Columns must be a positive integer" };
     }
 
-    // 🔹 Max seats constraint
-    if (rows * columns > MAX_SEATS) {
-      return { error: `rows × columns cannot exceed ${MAX_SEATS}` };
+    // Max seats constraint
+    if (parsedRows * parsedColumns > MAX_SEATS) {
+      return { error: `Total seats (rows × columns) cannot exceed ${MAX_SEATS}` };
     }
 
-    // 🔹 Screen Type
-    if (screenType !== undefined) {
+    // Screen Type
+    if (screenType !== undefined && screenType !== null) {
       if (!SCREEN_TYPES.includes(screenType)) {
-        return { error: "Invalid screen type" };
+        return { error: `Invalid screen type. Allowed: ${SCREEN_TYPES.join(', ')}` };
       }
     }
 
     return {
+      error: null,
       value: {
         theaterId,
         name: name.trim(),
-        rows,
-        columns,
-        screenType
+        rows: parsedRows,
+        columns: parsedColumns,
+        screenType: screenType || 'STANDARD'
       }
     };
 
@@ -72,22 +60,5 @@ const validateCreateScreen = (req) => {
     return { error: "Validation failed" };
   }
 };
-const validateTheaterId = (req) => {
-  try {
-    const { theaterId } = req.params;
 
-    if (!validator.isMongoId(theaterId)) {
-      return { error: "Invalid theater ID" };
-    }
-
-    return { value: { theaterId } };
-
-  } catch (error) {
-    return { error: "Validation failed" };
-  }
-};
-
-module.exports = {
-  validateCreateScreen,
-  validateTheaterId
-};
+module.exports = { validateCreateScreen };
