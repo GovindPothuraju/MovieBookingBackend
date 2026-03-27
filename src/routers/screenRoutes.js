@@ -3,9 +3,8 @@ const {adminAuth , adminMiddleware} = require("../middleware/adminAuth");
 
 const screenRouter=express.Router();
 
-const {validateCreateTheater}=require("../validators/theaterValidator");
-const { validateCreateScreen}=require("../validators/screenValidators");
-const Theater = require("../models/TheaterModel");
+const { validateCreateScreen, validatePartialScreenUpdate }=require("../validators/screenValidators");
+const Theater = require("../models/theaterModel");
 const Screen = require("../models/screenModel");
 
 // -------------------- Screen Management ------------------ //
@@ -76,7 +75,103 @@ screenRouter.post('/theaters/:theaterId/screens', adminAuth, adminMiddleware, as
  * PUT /screens/:screenId
  * Admin only: partially update screen (e.g., status, type)
  */
-screenRouter.patch("/theaters/:theaterId/screens/:id" ,()=>{})
+/**
+ * PATCH /screens/:screenId
+ * Admin only: partially update screen (e.g., status, type)
+ */
+screenRouter.patch("/screens/:screenId", adminAuth, adminMiddleware, async (req, res) => {
+  try {
+    // 1. Validate partial update data
+    const result = validatePartialScreenUpdate(req);
+    if (result.error) {
+      return res.status(422).json({
+        success: false,
+        message: result.error.details || result.error
+      });
+    }
+
+    const { screenId, screenType, isActive } = result.value;
+
+    // 2. Find existing screen with theater details
+    const screen = await Screen.findById(screenId)
+      .populate('theaterId', 'name isActive')
+      .lean();
+
+    if (!screen) {
+      return res.status(404).json({
+        success: false,
+        message: "Screen not found"
+      });
+    }
+
+    // 3. Verify associated theater exists and is active
+    if (!screen.theaterId || !screen.theaterId.isActive) {
+      return res.status(409).json({
+        success: false,
+        message: "Cannot update screen: associated theater not found or inactive"
+      });
+    }
+
+    // 4. Prepare atomic update fields (only provided ones)
+    const updateFields = { $set: {} };
+    if (screenType !== undefined) updateFields.$set.screenType = screenType;
+    if (isActive !== undefined) updateFields.$set.isActive = isActive;
+
+    // 5. Perform safe update
+    const updatedScreen = await Screen.findByIdAndUpdate(
+      screenId,
+      updateFields,
+      { 
+        new: true, 
+        runValidators: true,
+        context: 'query'
+      }
+    ).populate('theaterId', 'name isActive');
+
+    if (!updatedScreen) {
+      return res.status(404).json({
+        success: false,
+        message: "Screen not found during update"
+      });
+    }
+
+    // 6. Final consistency check (theater still active post-update)
+    if (!updatedScreen.theaterId?.isActive) {
+      return res.status(409).json({
+        success: false,
+        message: "Update failed: associated theater became inactive"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Screen updated successfully",
+      data: updatedScreen
+    });
+
+  } catch (err) {
+    console.error("Update screen error:", err);
+    
+    // Handle specific Mongo errors
+    if (err.name === 'ValidationError') {
+      return res.status(422).json({
+        success: false,
+        message: Object.values(err.errors)[0].message
+      });
+    }
+    if (err.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Update violates unique constraint"
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: err.message || "Server error during screen update"
+    });
+  }
+});
 
 /**
  * DELETE /screens/:screenId

@@ -3,9 +3,8 @@ const {adminAuth , adminMiddleware} = require("../middleware/adminAuth");
 
 const theaterRouter=express.Router();
 
-const {validateCreateTheater}=require("../validators/theaterValidator");
-const { validateCreateScreen}=require("../validators/screenValidators");
-const Theater = require("../models/TheaterModel");
+const {validateCreateTheater,validateUpdateTheater}=require("../validators/theaterValidator");
+const Theater = require("../models/theaterModel");
 const Screen = require("../models/screenModel");
 
 /**
@@ -71,52 +70,70 @@ theaterRouter.post("/theaters", adminAuth, adminMiddleware, async (req, res) => 
  * PATCH /theaters/:id
  * Admin only: update theater fields (partial updates supported)
  */
-theaterRouter.patch("/theaters/:id" , adminAuth, adminMiddleware, async (req, res) =>{
-  try{
-     const {id} = req.params;
-    // 1. validate request body 
-    const result = validateCreateTheater(req);
-    if (result.error || !result.isValid) {
+theaterRouter.patch("/theaters/:id", adminAuth, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Validate update data
+    const result = validateUpdateTheater(req);
+    if (!result.isValid) {
       return res.status(400).json({
         success: false,
-        message: result.error || result.message || "Invalid request data"
+        message: result.error || "Invalid update data"
       });
     }
-    const value = result.value;
-    // 2. Check if the theater exists and is active 
-    const theater= await Theater.findById(id);
-    if(!theater){
-      return res.status(400).json({
-        success : false,
+
+    const updateData = result.value;
+    console.log("Update data:", updateData);
+
+    // 2. Fetch existing theater
+    const theater = await Theater.findById(id);
+    if (!theater) {
+      return res.status(404).json({
+        success: false,
         message: "Theater not found"
       });
     }
-    if(!theater.isActive){
-      res.status(403).json({
+
+    // Allow re-activation of inactive theaters, block other updates if inactive
+    if (!theater.isActive && !(updateData.isActive === true)) {
+      return res.status(403).json({
         success: false,
-        message: "Theater is inactive"
+        message: "Inactive theater can only be reactivated (set isActive: true)"
       });
     }
-    // 3. ckeck for duplicate theater (same name + city) already exists in the databse
-    const updateData = value;
-    const checkForDuplicates = await Theater.findOne({
-      _id: { $ne: id }, // excluding current theater
-      name: updateData.name || theater.name,
-      city: updateData.city || theater.city,
-      "address.street": updateData.address?.street || theater.address.street
-    });
-    if(checkForDuplicates){
-      return res.status(409).json({
-        success: false,
-        message: "Theater with this name already exists in the same city"
-      });
+
+    // 3. Duplicate check (only if name/city changing)
+    const query = { _id: { $ne: id } };
+    if (updateData.name !== undefined) query.name = updateData.name.trim();
+    if (updateData.city !== undefined) query.city = updateData.city.trim();
+    if (updateData.address?.street !== undefined) query['address.street'] = updateData.address.street.trim();
+
+    if (Object.keys(query).length > 1) { // has fields to check
+      const duplicate = await Theater.findOne(query);
+      if (duplicate) {
+        return res.status(409).json({
+          success: false,
+          message: "Duplicate theater name/city/address combination exists"
+        });
+      }
     }
-    // 4. Update theater with new data (only provided fields)
+
+    // 4. Atomic update
     const updatedTheater = await Theater.findByIdAndUpdate(
       id,
       { $set: updateData },
       { new: true, runValidators: true }
-    );
+    ).exec();
+
+    if (!updatedTheater) {
+      return res.status(500).json({
+        success: false,
+        message: "Update failed"
+      });
+    }
+
+
     res.status(200).json({
       success: true,
       message: "Theater updated successfully",
@@ -127,10 +144,10 @@ theaterRouter.patch("/theaters/:id" , adminAuth, adminMiddleware, async (req, re
     console.error("Update theater error:", err);
     res.status(500).json({
       success: false,
-      message: "Server error during update"
+      message: err.message || "Server error during theater update"
     });
   }
-})
+});
  
 /**
  * DELETE /theaters/:id
