@@ -3,21 +3,6 @@ const validator = require("validator");
 // 🎯 Allowed seat types (optional but recommended)
 const SEAT_TYPES = ["REGULAR", "VIP"];
 
-// 1️ SCREEN ID VALIDATOR
-const validateScreenId = (req) => {
-  try {
-    const { screenId } = req.params;
-
-    if (!validator.isMongoId(screenId)) {
-      return { error: "Invalid screen ID" };
-    }
-
-    return { value: { screenId } };
-
-  } catch (error) {
-    return { error: "Validation failed" };
-  }
-};
 const validateUpdateLayout = (req) => {
   try {
     const { screenId } = req.params;

@@ -14,7 +14,7 @@ const seatSchema = new mongoose.Schema(
       uppercase: true,
       match: [/^[A-Z]$/, 'Row must be a single uppercase letter'],
     },
-    number: {
+    column: {
       type: Number,
       required: [true, 'Seat number is required'],
       min: [1, 'Seat number must be at least 1'],
@@ -24,7 +24,7 @@ const seatSchema = new mongoose.Schema(
       required: [true, 'Seat label is required'],
       uppercase: true,
     },
-    type: {
+    category: {
       type: String,
       enum: ['REGULAR', 'VIP', 'PREMIUM', 'RECLINER'],
       default: 'REGULAR',
@@ -39,8 +39,7 @@ const seatSchema = new mongoose.Schema(
   }
 );
 
-
-seatSchema.index({ screenId: 1, seatLabel: 1 }, { unique: true });
 seatSchema.index({ screenId: 1, row: 1 });
+seatSchema.index({ screenId: 1, row: 1, column: 1 }, { unique: true });
 
 module.exports = mongoose.model('Seat', seatSchema);
