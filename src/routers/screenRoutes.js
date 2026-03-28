@@ -1,4 +1,5 @@
 const express=require('express');
+const mongoose = require('mongoose');
 const {adminAuth , adminMiddleware} = require("../middleware/adminAuth");
 
 const screenRouter=express.Router();
@@ -71,10 +72,6 @@ screenRouter.post('/theaters/:theaterId/screens', adminAuth, adminMiddleware, as
   }
 });
 
-/**
- * PUT /screens/:screenId
- * Admin only: partially update screen (e.g., status, type)
- */
 /**
  * PATCH /screens/:screenId
  * Admin only: partially update screen (e.g., status, type)
@@ -177,7 +174,46 @@ screenRouter.patch("/screens/:screenId", adminAuth, adminMiddleware, async (req,
  * DELETE /screens/:screenId
  * Admin only: delete a screen (soft delete recommended)
  */
-screenRouter.delete("/theaters/:theaterId/screens/:id" ,()=>{})
+screenRouter.delete("/screens/:id" ,adminAuth, adminMiddleware , async (req,res)=>{
+    try{
+      // 1. Validate screenId param
+      const { id } = req.params;
+      if(!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid screen ID"
+        });
+      }
+      // 2. check if screen exists in databse
+      const screen= await Screen.findById(id);
+      if(!screen){
+        return res.status(404).json({
+          success: false,
+          message: "Screen not found"
+        });
+      }
+      // 3 check if screen is already inactive
+      if(!screen.isActive){
+        return res.status(409).json({
+          success: false,
+          message: "Screen is already inactive/deleted"
+        });
+      }
+      // 4. Perform soft delete by setting isActive to false
+      screen.isActive=false;
+      // 5. Return success response
+      await screen.save();
+      res.status(200).json({
+        success: true,
+        message: "Screen deleted successfully"
+      });
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        message: err.message || "Server error during screen deletion"
+      });
+    }
+  });
 /**
  * GET /theaters/:theaterId/screens
  * Authenticated: list screens for a theater
