@@ -9,6 +9,7 @@ const connectDB = require('./config/databse');
 const adminRoutes = require('./routers/adminRoutes');
 const theaterRoutes = require('./routers/theaterRouter');
 const screenRoutes = require('./routers/screenRoutes');
+const seatRoutes = require('./routers/seatRoutes');
 
 
 app.use(cors());
@@ -20,6 +21,7 @@ app.use(cookieParser());
 app.use('/',adminRoutes);
 app.use('/',theaterRoutes);
 app.use('/',screenRoutes);
+app.use('/',seatRoutes);
 
 
 app.use("/hello",(req,res)=>{

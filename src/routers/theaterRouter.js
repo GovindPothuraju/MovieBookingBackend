@@ -273,8 +273,57 @@ theaterRouter.get('/theaters/:id', adminAuth, adminMiddleware,async (req, res) =
  * GET /theaters
  * Public: list active theaters with optional ?city= and pagination
  */
-theaterRouter.get("/theaters",(req,res)=>{
-  res.send("List of theaters with optional city filter and pagination");
+theaterRouter.get("/theaters", async (req,res)=>{
+  try{
+    // 1. extract query params like city , page , limit
+    let {city, page =1, limit = 2} = req.query;
+
+    page= parseInt(page);
+    limit = parseInt(limit);
+
+    if(isNaN(page || page < 1)) page = 1;
+    if(isNaN(limit) || limit < 1) limit = 10;
+    if(limit > 50) limit = 50; // max limit capacity
+
+    // 2. build query object 
+    const query = {isActive: true};
+    if(city){
+      query.city = city.trim();
+    }
+    // 3. calculate skip and limit for pagination
+    const skip = (page - 1) * limit;
+    // 4. execute main query
+    const theaters = await Theater.find(query)
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .select("name city address amenities");
+    // 5. get total count for pagination metadata
+    const totalTheaters = await Theater.countDocuments(query);
+    // 6. get pagination information
+    const totalPages = Math.ceil(totalTheaters / limit);
+
+    const pagination = {
+      totalTheaters,
+      page,
+      limit,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    };
+    // 7. return response with theaters and pagination metadata
+    return res.status(200).json({
+      success: true,
+      message: "Theaters fetched successfully",
+      data: theaters,
+      pagination,
+    });
+  }catch(err){
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Server error during fetching theaters",
+    });
+  }
 });
 
 

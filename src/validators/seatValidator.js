@@ -3,7 +3,7 @@ const validator = require("validator");
 // 🎯 Allowed seat types (optional but recommended)
 const SEAT_TYPES = ["REGULAR", "VIP"];
 
-// 1️⃣ SCREEN ID VALIDATOR
+// 1️ SCREEN ID VALIDATOR
 const validateScreenId = (req) => {
   try {
     const { screenId } = req.params;
