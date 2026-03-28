@@ -168,12 +168,182 @@ seatRouter.get("/screens/:screenId/seats", adminAuth, adminMiddleware ,async (re
  * PUT /screens/:screenId/layout
  * Admin only: update seat layout (only if no active shows/bookings)
  */
-seatRouter.put("/screens/:screenId/layout", async (req, res) => {});
+seatRouter.put("/screens/:screenId/layout",adminAuth,adminMiddleware,async (req, res) => {
+    try {
+      // 1. validate screenId
+      const { screenId } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(screenId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid screen ID",
+        });
+      }
+
+      // 2. check screen exists
+      const screen = await Screen.findById(screenId);
+
+      if (!screen) {
+        return res.status(404).json({
+          success: false,
+          message: "Screen not found",
+        });
+      }
+
+      // 3. check screen active
+      if (!screen.isActive) {
+        return res.status(403).json({
+          success: false,
+          message: "Screen is inactive",
+        });
+      }
+
+      // 4. check if active shows exist (IMPORTANT)
+      // (Assuming Show model exists)
+      // const activeShows = await Show.exists({ screenId });
+      // if (activeShows) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Cannot update layout, active shows exist",
+      //   });
+      // }
+
+      // 4. validate input
+      let { rows, columns, layout = {} } = req.body;
+
+      rows = parseInt(rows);
+      columns = parseInt(columns);
+
+      if (!rows || !columns || rows < 1 || columns < 1 || rows > 26 || rows * columns > 500) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid rows or columns",
+        });
+      }
+
+
+      // 5. validate categories
+      const allowedTypes = ["REGULAR", "VIP", "PREMIUM", "RECLINER"];
+
+      for (let r in layout) {
+        if (!allowedTypes.includes(layout[r])) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid seat type for row ${r}`,
+          });
+        }
+      }
+
+      // 6. delete old seats
+      await Seat.deleteMany({ screenId });
+
+      // 7. generate new seats
+      const seats = [];
+
+      for (let i = 0; i < rows; i++) {
+        const rowLetter = String.fromCharCode(65 + i);
+
+        for (let j = 1; j <= columns; j++) {
+          seats.push({
+            screenId,
+            row: rowLetter,
+            column: j,
+            seatLabel: `${rowLetter}${j}`,
+            category: layout[rowLetter] || "REGULAR",
+          });
+        }
+      }
+
+      // 8. insert new seats
+      await Seat.insertMany(seats);
+
+      // 9. update screen
+      screen.rows = rows;
+      screen.columns = columns;
+      screen.totalSeats = rows * columns;
+
+      await screen.save();
+
+      // 10. response
+      return res.status(200).json({
+        success: true,
+        message: "Seat layout updated successfully",
+        totalSeats: seats.length,
+      });
+
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        message: err.message || "Can't update seat",
+      });
+    }
+  }
+);
 /**
  * DELETE /screens/:screenId/layout
  * Admin only: delete seat layout (safe delete)
  */
-seatRouter.delete("/screens/:screenId/layout", async (req, res) => {});
+seatRouter.delete("/screens/:screenId/layout",adminAuth,adminMiddleware,async (req, res) => {
+    try {
+      // 1. validate screenId
+      const { screenId } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(screenId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid screen ID",
+        });
+      }
+
+      // 2. check screen exists
+      const screen = await Screen.findById(screenId);
+
+      if (!screen) {
+        return res.status(404).json({
+          success: false,
+          message: "Screen not found",
+        });
+      }
+
+      // 3. check screen active
+      if (!screen.isActive) {
+        return res.status(403).json({
+          success: false,
+          message: "Screen is inactive",
+        });
+      }
+
+      // 4. check if seats exist
+      const seatsExist = await Seat.exists({ screenId });
+
+      if (!seatsExist) {
+        return res.status(404).json({
+          success: false,
+          message: "No seat layout found for this screen",
+        });
+      }
+
+      // 5. delete seats
+      await Seat.deleteMany({ screenId });
+
+      // 6. update screen flag
+      screen.seatsGenerated = false;
+      await screen.save();
+
+      // 7. success response
+      return res.status(200).json({
+        success: true,
+        message: "Seat layout deleted successfully",
+      });
+
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        message: err.message || "Failed to delete layout",
+      });
+    }
+  }
+);
 
 
 module.exports = seatRouter;
