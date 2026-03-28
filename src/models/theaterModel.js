@@ -59,5 +59,8 @@ theaterSchema.virtual('screens', {
   foreignField: 'theaterId',
   match: { isActive: true },
 });
+// mongoose virtuals are not included in JSON by default, we need to set it explicitly
+theaterSchema.set('toObject', { virtuals: true });
+theaterSchema.set('toJSON', { virtuals: true });
 
 module.exports = mongoose.model('Theater', theaterSchema);

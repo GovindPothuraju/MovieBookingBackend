@@ -216,9 +216,50 @@ screenRouter.delete("/screens/:id" ,adminAuth, adminMiddleware , async (req,res)
   });
 /**
  * GET /theaters/:theaterId/screens
- * Authenticated: list screens for a theater
+ * Admin Authenticated: list screens for a theater
  */
-screenRouter.get('/theaters/:theaterId/screens/:id',(req, res) => {});
+screenRouter.get('/theaters/:theaterId/screens',adminAuth, adminMiddleware ,async (req, res) => {
+  try{
+    // 1. validate theater id
+    const { theaterId } = req.params;
+    if(!mongoose.Types.ObjectId.isValid(theaterId)){
+      return res.status(400).json({
+        success: false,
+        message: "Invalid theater ID"
+      });
+    }
+    // 2. check theater exists and active
+    const theater = await Theater.findById(theaterId);
+    if(!theater){
+      return res.status(404).json({
+        success: false,
+        message: "Theater not found"
+      });
+    }
+    if(!theater.isActive){
+      return res.status(403).json({
+        success: false,
+        message: "Theater is inactive"
+      });
+    }
+    // 3. find all screens for that theater
+    const screens = await Screen.find({
+        theaterId,
+        isActive: true,
+      }).select("name totalSeats screenType");
+    // 4.return all theater screens with names 
+    return res.status(200).json({
+      success: true,
+      message: `Screens for theater "${theater.name}" retrieved successfully`,
+      data: screens
+    });
+  }catch(err){
+    res.status(500).json({
+      success: false,
+      message: err.message || "Server error during fetching screens"
+    });
+  }
+});
  
 // ------------------- Screen Seat Management ------------------ //
 /**

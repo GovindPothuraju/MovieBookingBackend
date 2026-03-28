@@ -1,4 +1,5 @@
 const express=require('express');
+const mongoose = require('mongoose');
 const {adminAuth , adminMiddleware} = require("../middleware/adminAuth");
 
 const theaterRouter=express.Router();
@@ -215,8 +216,57 @@ theaterRouter.delete('/theaters/:id', adminAuth, adminMiddleware, async (req, re
  * GET /theaters/:id
  * Authenticated: get theater by ID (includes screens)
  */
-theaterRouter.get('/theaters/:id',(req, res) => {
-  
+theaterRouter.get('/theaters/:id', adminAuth, adminMiddleware,async (req, res) => {
+  try {
+    // 1. validate theater id
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid theater ID",
+      });
+    }
+
+    // 2. check theater exists and active
+    const theater = await Theater.findById(id);
+
+    if (!theater) {
+      return res.status(404).json({
+        success: false,
+        message: "Theater not found",
+      });
+    }
+
+    if (!theater.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Theater is inactive",
+      });
+    }
+
+    // 3. populate active screens (optimized)
+    await theater.populate({
+      path: "screens",
+      match: { isActive: true },
+      select: "name totalSeats screenType",
+    });
+
+    // 4. return response
+    return res.status(200).json({
+      success: true,
+      message: "Theater details retrieved successfully",
+      data: theater,
+    });
+
+  } catch (err) {
+    console.error("Get Theater Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Server error during fetching theater details",
+    });
+  }
 });
 
 /**
