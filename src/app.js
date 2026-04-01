@@ -10,6 +10,7 @@ const adminRoutes = require('./routers/adminRoutes');
 const theaterRoutes = require('./routers/theaterRouter');
 const screenRoutes = require('./routers/screenRoutes');
 const seatRoutes = require('./routers/seatRoutes');
+const movieRoutes = require('./routers/movieRoutes')
 
 
 app.use(cors());
@@ -22,11 +23,8 @@ app.use('/',adminRoutes);
 app.use('/',theaterRoutes);
 app.use('/',screenRoutes);
 app.use('/',seatRoutes);
+app.use('/',movieRoutes);
 
-
-app.use("/hello",(req,res)=>{
-    res.send("Hello World brother");
-})
 
 
 connectDB().then(()=>{
