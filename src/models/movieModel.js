@@ -25,6 +25,7 @@ const movieSchema = new mongoose.Schema(
           "THRILLER",
           "HORROR",
           "ROMANCE",
+          "SCI-FI",
         ],
       },
     ],
@@ -60,19 +61,41 @@ const movieSchema = new mongoose.Schema(
     // cast
     cast: [
       {
-        name: String,
-        image: String, // cloud URL
+        name: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        image: {
+          type: String, // cloud URL
+          default: null,
+        }, 
+      },
+    ],
+    // crew
+    crew: [
+      {
+        name: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        image: {
+          type: String, // cloud URL
+          default: null,
+        }, 
       },
     ],
 
     // media
     posterUrl: {
       type: String,
-      required: true,
+      required: true, // cloud URL
     },
 
     trailerUrl: {
       type: String,
+      trim:true,
     },
 
     // status
@@ -98,10 +121,17 @@ const movieSchema = new mongoose.Schema(
 );
 
 
-// auto slug
-movieSchema.pre("save", function (next) {
+movieSchema.pre("save", async function (next) {
   if (this.isModified("title")) {
-    this.slug = this.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    let slug = this.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+    const existing = await mongoose.models.Movie.findOne({ slug });
+
+    if (existing) {
+      slug = `${slug}-${Date.now()}`;
+    }
+
+    this.slug = slug;
   }
 });
 
