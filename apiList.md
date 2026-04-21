@@ -95,18 +95,6 @@ Schedule and manage movie shows.
 
 ---
 
-## 💰 Pricing
-
-Manage pricing configurations.
-
-| Endpoint | Method | Auth | Description |
-| :--- | :--- | :--- | :--- |
-| `/pricing` | `GET` | Protected | Get all pricing models |
-| `/pricing` | `POST` | Protected | Create a pricing entry |
-| `/pricing/:id` | `PATCH` | Protected | Update pricing details |
-| `/pricing/:id` | `DELETE` | Protected | Remove a pricing entry |
-
----
 
 ## 🎟️ Bookings
 

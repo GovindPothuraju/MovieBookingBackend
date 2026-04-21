@@ -155,6 +155,7 @@ movieRouter.post('/movies',adminAuth,adminMiddleware,
 );
 
 
+
 /**
  * PATCH /movies/:movieId
  * Admin only: update movie details
@@ -399,6 +400,7 @@ movieRouter.patch('/movies/:movieId/status',adminAuth, adminMiddleware,async (re
     }
   }
 );
+
 
 
 /**

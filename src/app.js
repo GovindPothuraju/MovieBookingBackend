@@ -11,6 +11,7 @@ const theaterRoutes = require('./routers/theaterRouter');
 const screenRoutes = require('./routers/screenRoutes');
 const seatRoutes = require('./routers/seatRoutes');
 const movieRoutes = require('./routers/movieRoutes')
+const showRoutes = require('./routers/showRoutes');
 
 
 app.use(cors());
@@ -24,6 +25,7 @@ app.use('/',theaterRoutes);
 app.use('/',screenRoutes);
 app.use('/',seatRoutes);
 app.use('/',movieRoutes);
+app.use('/',showRoutes);
 
 
 

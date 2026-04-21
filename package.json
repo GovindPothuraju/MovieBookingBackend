@@ -1,7 +1,7 @@
 {
   "name": "movieticketbackend",
   "version": "1.0.0",
-  "description": "Online Movie Booking Backend Microservive",
+  "description": "Online Movie Booking Backend Microservice",
   "keywords": [
     "Node",
     "js",
