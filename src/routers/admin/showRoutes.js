@@ -4,14 +4,14 @@ const mongoose = require('mongoose');
 const showRouter = express.Router();
 
 
-const Show = require('../models/showModel');
-const Movie = require('../models/movieModel');
-const Theater = require('../models/theaterModel');
-const Screen = require('../models/screenModel');
-const Seat = require('../models/seatSchema');
+const Show = require('../../models/admin/showModel');
+const Movie = require('../../models/admin/movieModel');
+const Theater = require('../../models/admin/theaterModel');
+const Screen = require('../../models/admin/screenModel');
+const Seat = require('../../models/admin/seatSchema');
 
-const {adminAuth, adminMiddleware} = require('../middleware/adminAuth');
-const { validateShowInput,validateShowUpdateInput } = require('../validators/showValidator');
+const {adminAuth, adminMiddleware} = require('../../middleware/adminAuth');
+const { validateShowInput,validateShowUpdateInput } = require('../../validators/showValidator');
 
 // dynamic show status (if show is ended, mark as completed; if cancelled, mark as cancelled; else scheduled)
 const getShowStatus = (show) => {

@@ -1,3 +1,122 @@
+# QuickMovie User API Documentation
+
+The QuickMovie User API is a RESTful API built with Node.js and Express, providing movie browsing, seat booking, payment handling, and user account management features.
+
+**Base URL**: `http://localhost:3000/api/users`
+
+---
+
+## 🔐 Authentication
+
+Most endpoints are protected and require a `Bearer` token in the `Authorization` header.
+
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/auth/register` | `POST` | Public | Register a new user account |
+| `/auth/login` | `POST` | Public | Login and receive JWT in cookies/headers |
+| `/auth/logout` | `POST` | Protected | Logout current user |
+| `/auth/me` | `GET` | Protected | Get current logged-in user |
+| `/auth/change-password` | `PATCH` | Protected | Change current user password |
+
+---
+
+## 🎬 Movies
+
+Browse movies currently available for booking.
+
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/movies` | `GET` | Public | List all active movies |
+| `/movies/:id` | `GET` | Public | Get movie details by ID |
+| `/movies/:id/shows` | `GET` | Public | Get all available shows for a movie |
+
+---
+
+## 🎭 Theaters
+
+Browse theaters and available shows.
+
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/theaters` | `GET` | Public | List all theaters |
+| `/theaters/:id` | `GET` | Public | Get theater details by ID |
+| `/theaters/:id/shows` | `GET` | Public | Get all shows for a theater |
+
+---
+
+## 📅 Shows
+
+View scheduled shows and live seat availability.
+
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/shows` | `GET` | Public | List all available shows |
+| `/shows/:id` | `GET` | Public | Get show details by ID |
+| `/shows/:id/seats` | `GET` | Protected | Get live seat availability for a show |
+
+---
+
+## 🎟️ Bookings
+
+Book tickets and manage bookings.
+
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/bookings` | `POST` | Protected | Create a new booking |
+| `/bookings/me` | `GET` | Protected | Get current user's bookings |
+| `/bookings/:id` | `GET` | Protected | Get booking details by ID |
+| `/bookings/:id/cancel` | `PATCH` | Protected | Cancel a booking |
+
+---
+
+## 💳 Payments
+
+Handle payment processing and payment tracking.
+
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/payments/create-intent` | `POST` | Protected | Create payment session |
+| `/payments/webhook` | `POST` | Public | Payment gateway webhook |
+| `/payments/:bookingId` | `GET` | Protected | Get payment details for a booking |
+
+---
+
+## ❤️ Wishlist
+
+Save favorite movies for later.
+
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/wishlist` | `GET` | Protected | Get user's wishlist |
+| `/wishlist/:movieId` | `POST` | Protected | Add movie to wishlist |
+| `/wishlist/:movieId` | `DELETE` | Protected | Remove movie from wishlist |
+
+---
+
+## 👤 Profile
+
+Manage user profile and account information.
+
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/profile` | `GET` | Protected | Get user profile |
+| `/profile` | `PATCH` | Protected | Update user profile |
+
+---
+
+
+## 📊 User Analytics
+
+Track user booking activity and spending.
+
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/analytics/bookings` | `GET` | Protected | Get booking analytics |
+| `/analytics/spending` | `GET` | Protected | Get spending analytics |
+
+---
+
+
 # QuickMovie Backend API Documentation
 
 The QuickMovie Backend is a RESTful API built with Node.js and Express, providing a robust admin-focused movie ticket booking management system.

@@ -1,12 +1,12 @@
 const express=require('express');
 const mongoose = require('mongoose');
-const {adminAuth , adminMiddleware} = require("../middleware/adminAuth");
+const {adminAuth , adminMiddleware} = require("../../middleware/adminAuth");
 
 const theaterRouter=express.Router();
 
-const {validateCreateTheater,validateUpdateTheater}=require("../validators/theaterValidator");
-const Theater = require("../models/theaterModel");
-const Screen = require("../models/screenModel");
+const {validateCreateTheater,validateUpdateTheater}=require("../../validators/theaterValidator");
+const Theater = require("../../models/admin/theaterModel");
+const Screen = require("../../models/admin/screenModel");
 
 /**
  * POST /theaters

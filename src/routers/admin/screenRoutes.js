@@ -1,12 +1,12 @@
 const express=require('express');
 const mongoose = require('mongoose');
-const {adminAuth , adminMiddleware} = require("../middleware/adminAuth");
+const {adminAuth , adminMiddleware} = require("../../middleware/adminAuth");
 
 const screenRouter=express.Router();
 
-const { validateCreateScreen, validatePartialScreenUpdate }=require("../validators/screenValidators");
-const Theater = require("../models/theaterModel");
-const Screen = require("../models/screenModel");
+const { validateCreateScreen, validatePartialScreenUpdate }=require("../../validators/screenValidators");
+const Theater = require("../../models/admin/theaterModel");
+const Screen = require("../../models/admin/screenModel");
 
 // -------------------- Screen Management ------------------ //
 

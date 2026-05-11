@@ -8,10 +8,10 @@ const bcrypt = require("bcrypt");
 // - POST /auth/logOut     → Logout user (JWT / session)
 
 
-const { validateAdminRegister } = require("../validators/adminValidator");
-const { validateAdminLogin } = require("../validators/adminValidator");
+const { validateAdminRegister } = require("../../validators/adminValidator");
+const { validateAdminLogin } = require("../../validators/adminValidator");
 
-const Admin = require("../models/AdminModel");
+const Admin = require("../../models/admin/AdminModel");
 
 adminRouter.post("/admin/register", async (req, res) => {
   try {

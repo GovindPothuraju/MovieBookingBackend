@@ -2,11 +2,11 @@ const express = require("express");
 const mongoose = require("mongoose");
 const seatRouter = express.Router();
 
-const Seat = require("../models/seatSchema");
-const Theater = require("../models/theaterModel");
-const Screen = require("../models/screenModel");
+const Seat = require("../../models/admin/seatSchema");
+const Theater = require("../../models/admin/theaterModel");
+const Screen = require("../../models/admin/screenModel");
 
-const { adminAuth, adminMiddleware } = require("../middleware/adminAuth");
+const { adminAuth, adminMiddleware } = require("../../middleware/adminAuth");
 
 // ------------------- Screen Seat Management ------------------ //
 

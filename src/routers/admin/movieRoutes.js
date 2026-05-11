@@ -2,12 +2,12 @@
 const express = require('express');
 const movieRouter = express.Router();
 const mongoose = require('mongoose');
-const Movie = require('../models/movieModel');
-const upload = require('../config/multer');
+const Movie = require('../../models/admin/movieModel');
+const upload = require('../../config/multer');
 
-const { validateCreateMovie , validateUpdateMovie} = require('../validators/movieValidator');
-const { adminAuth ,adminMiddleware } = require('../middleware/adminAuth');
-const uploadToCloudinary = require('../utils/cloudinaryUpload');
+const { validateCreateMovie , validateUpdateMovie} = require('../../validators/movieValidator');
+const { adminAuth ,adminMiddleware } = require('../../middleware/adminAuth');
+const uploadToCloudinary = require('../../utils/cloudinaryUpload');
 
 
 /**
