@@ -9,7 +9,7 @@ const { validateUserRegistration } = require('../../validators/userValidators/us
  * POST /auth/register
  * User: register a new account
  */
-userRouter.post('/auth/user/register', async (req, res) => {
+userRouter.post('/register', async (req, res) => {
   try {
 
     // 1. Validate data
@@ -74,7 +74,7 @@ userRouter.post('/auth/user/register', async (req, res) => {
  * POST /auth/login
  * User: login and receive JWT token
  */
-userRouter.post('/user/login', async (req, res) => {
+userRouter.post('/login', async (req, res) => {
   try{
     // 1. Extract credentials
     const { email, password } = req.body;
@@ -94,8 +94,7 @@ userRouter.post('/user/login', async (req, res) => {
         success: false,
         message: "User not found"
       });
-    }
-    console.log("User found:", user);
+    }clear
     // 5. validate password
     const isMatch = await bcrypt.compare(password, user.password);
     if(!isMatch){
@@ -142,11 +141,18 @@ userRouter.post('/user/login', async (req, res) => {
  * POST /auth/logout
  * User: logout current user
  */
-userRouter.post('/auth/logout',  async (req, res) => {
+userRouter.post('/logout',  async (req, res) => {
   try{
-
+    res.cookie("token", null, {httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", expires: new Date(Date.now())});
+    return res.status(200).json({
+      success: true,
+      message: "Logout successful"
+    });
   }catch(err){
-    
+    return res.status(500).json({
+      success: false,
+      message: "Logout failed"
+    });
   }
 });
 

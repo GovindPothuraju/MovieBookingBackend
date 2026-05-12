@@ -17,6 +17,7 @@ const bookingRoutes = require('./routers/admin/bookingRoutes');
 
 // User Routes
 const userRoutes = require('./routers/users/userRoutes');
+const userMovieRoutes = require('./routers/users/movieRoutes');
 
 app.use(cors());
 app.use(express.json());
@@ -32,7 +33,8 @@ app.use('/',movieRoutes);
 app.use('/',showRoutes);
 app.use('/',bookingRoutes);
 // User routes
-app.use('/',userRoutes);
+app.use('/user/',userRoutes);
+app.use('/user/',userMovieRoutes);
 
 connectDB().then(()=>{
     console.log("Database connected successfully");

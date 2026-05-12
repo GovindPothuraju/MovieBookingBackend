@@ -167,9 +167,19 @@ adminRouter.post("/admin/login", async (req, res) => {
 });
 
 adminRouter.post("/admin/logout", (req, res) => {
-  res.cookie("token",null,{httpOnly:true,secure: true,
-    sameSite: "None", expires: new Date(Date.now())});
-  res.send("Logout Sucessful");
+  try{
+    res.cookie("token",null,{httpOnly:true,secure: true,sameSite: "None", expires: new Date(Date.now())});
+    
+    return res.status(200).json({
+      success: true,
+      message: "Logout successful"
+    });
+  }catch(err){
+    return res.status(500).json({
+      success: false,
+      message: "Logout failed"
+    });
+  }
 });
 
 
