@@ -94,7 +94,7 @@ userRouter.post('/login', async (req, res) => {
         success: false,
         message: "User not found"
       });
-    }clear
+    }
     // 5. validate password
     const isMatch = await bcrypt.compare(password, user.password);
     if(!isMatch){

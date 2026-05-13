@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const movieSchema = new mongoose.Schema(
   {
@@ -39,7 +39,7 @@ const movieSchema = new mongoose.Schema(
     ],
 
     duration: {
-      type: Number, // minutes
+      type: Number,
       required: true,
       min: 1,
       max: 400,
@@ -50,7 +50,6 @@ const movieSchema = new mongoose.Schema(
       required: true,
     },
 
-    // rating 
     rating: {
       type: Number,
       default: 0,
@@ -58,81 +57,80 @@ const movieSchema = new mongoose.Schema(
       max: 10,
     },
 
-    // cast
     cast: [
       {
-        name: {
-          type: String,
-          required: true,
-          trim: true,
-        },
-        image: {
-          type: String, // cloud URL
-          default: null,
-        }, 
-      },
-    ],
-    // crew
-    crew: [
-      {
-        name: {
-          type: String,
-          required: true,
-          trim: true,
-        },
-        image: {
-          type: String, // cloud URL
-          default: null,
-        }, 
+        name: String,
+        image: String,
       },
     ],
 
-    // media
+    crew: [
+      {
+        name: String,
+        image: String,
+      },
+    ],
+
     posterUrl: {
       type: String,
-      required: true, // cloud URL
+      required: true,
     },
 
     trailerUrl: {
       type: String,
-      trim:true,
+      trim: true,
     },
 
-    // status
     status: {
       type: String,
       enum: ["UPCOMING", "NOW_SHOWING", "ARCHIVED"],
       default: "UPCOMING",
     },
 
-    //  soft delete
     isActive: {
       type: Boolean,
       default: true,
     },
 
-    // 🔎 slug
     slug: {
       type: String,
       unique: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 
-movieSchema.pre("save", async function (next) {
+
+// IMPORTANT INDEXES
+movieSchema.index({
+  status: 1,
+  releaseDate: -1,
+});
+
+
+movieSchema.index({
+  isActive: 1,
+});
+
+
+
+// SLUG GENERATION
+movieSchema.pre("save", function (next) {
+
   if (this.isModified("title")) {
-    let slug = this.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-    const existing = await mongoose.models.Movie.findOne({ slug });
-
-    if (existing) {
-      slug = `${slug}-${Date.now()}`;
-    }
-
-    this.slug = slug;
+    this.slug =
+      this.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-") +
+      "-" +
+      Date.now();
   }
+
+  next();
 });
 
 module.exports = mongoose.model("Movie", movieSchema);

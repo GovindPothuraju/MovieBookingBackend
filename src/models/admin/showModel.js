@@ -43,6 +43,6 @@ const showSchema = new mongoose.Schema({
 }, {timestamps: true});
 
 showSchema.index({ theaterId: 1, screenId: 1, showTime: 1 }); // for checking overlapping shows
-showSchema.index({ movieId: 1 }); // for fetching shows by movie
+showSchema.index({ movieId: 1 , showTime:1}); // for fetching shows by movie
 
 module.exports = mongoose.model('Show', showSchema);
