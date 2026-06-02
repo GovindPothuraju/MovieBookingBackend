@@ -1,61 +1,48 @@
 require("dotenv").config();
 
-const jwt=require("jsonwebtoken");
-const Admin = require("../models/admin/AdminModel");
+const jwt = require('jsonwebtoken');
+const Admin = require('../models/admin/AdminModel');
 
-const adminAuth  = async (req, res, next) => {
+const adminAuth = async (req, res, next) => {
   try {
-    const {token} = req.cookies;
 
+    // 1 get token
+    const { token } = req.cookies;
+
+    // 2 validate token exists
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Please login to access this resource",
+        message: "Please login first",
       });
     }
 
-    const cookie= jwt.verify(token, process.env.JWT_SECRET);
-    const admin = await Admin.findById(cookie.id);
-    if(!admin || !admin.isActive){
+    // 3 verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // 4 find admin
+    const admin = await Admin.findById(decoded.id);
+
+    // 5 validate admin
+    if (!admin || !admin.isActive) {
       return res.status(401).json({
         success: false,
-        message: "Admin not found. Invalid token.",
+        message: "Unauthorized access",
       });
     }
 
-    req.user=admin;
-    next();
-  }
-  catch (err) {
-    console.error("Admin Auth Error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
-  }
-};
-
-// ADMIN ROLE CHECK (OPTIONAL BUT CLEAN)
-const adminMiddleware = (req, res, next) => {
-  try {
-    if (!req.user || req.user.role !== "ADMIN") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access required",
-      });
-    }
+    // 6 attach admin
+    req.admin = admin;
 
     next();
 
   } catch (err) {
-    console.error("Admin Middleware Error:", err);
 
-    return res.status(500).json({
+    return res.status(401).json({
       success: false,
-      message: "Internal Server Error",
+      message: "Invalid or expired token",
     });
   }
 };
 
-
-module.exports={adminAuth , adminMiddleware};
+module.exports = adminAuth;

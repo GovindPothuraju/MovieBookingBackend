@@ -6,7 +6,7 @@ const Movie = require('../../models/admin/movieModel');
 const upload = require('../../config/multer');
 
 const { validateCreateMovie , validateUpdateMovie} = require('../../validators/movieValidator');
-const { adminAuth ,adminMiddleware } = require('../../middleware/adminAuth');
+const adminAuth = require('../../middleware/adminAuth');
 const uploadToCloudinary = require('../../utils/cloudinaryUpload');
 
 
@@ -14,7 +14,7 @@ const uploadToCloudinary = require('../../utils/cloudinaryUpload');
  * POST /movies
  * Admin only: create a new movie
  */
-movieRouter.post('/movies',adminAuth,adminMiddleware,
+movieRouter.post('/movies',adminAuth,
   upload.fields([
     { name: "poster", maxCount: 1 },
     { name: "castImages", maxCount: 10 },
@@ -160,7 +160,7 @@ movieRouter.post('/movies',adminAuth,adminMiddleware,
  * PATCH /movies/:movieId
  * Admin only: update movie details
  */
-movieRouter.patch("/movies/:movieId",adminAuth,adminMiddleware,
+movieRouter.patch("/movies/:movieId",adminAuth,
   upload.fields([
     { name: "poster", maxCount: 1 },
     { name: "castImages", maxCount: 10 },
@@ -336,7 +336,7 @@ movieRouter.patch("/movies/:movieId",adminAuth,adminMiddleware,
  * Admin only: update movie status
  */
 
-movieRouter.patch('/movies/:movieId/status',adminAuth, adminMiddleware,async (req, res) => {
+movieRouter.patch('/movies/:movieId/status',adminAuth, async (req, res) => {
     try {
       const { movieId } = req.params;
       const { status } = req.body;
@@ -407,7 +407,7 @@ movieRouter.patch('/movies/:movieId/status',adminAuth, adminMiddleware,async (re
  * DELETE /movies/:movieId
  * Admin only: archive a movie (soft delete)
  */
-movieRouter.delete("/movies/:movieId",adminAuth,adminMiddleware,async (req, res) => {
+movieRouter.delete("/movies/:movieId",adminAuth,async (req, res) => {
     try {
       const { movieId } = req.params;
 
@@ -479,7 +479,7 @@ movieRouter.delete("/movies/:movieId",adminAuth,adminMiddleware,async (req, res)
  * GET /movies/:movieId
  * Admin only: get movie details by ID
  */
-movieRouter.get('/movies/:movieId', adminAuth, adminMiddleware, async (req, res) => {
+movieRouter.get('/movies/:movieId', adminAuth, async (req, res) => {
   try{
     // 1. Validate movieId
     const { movieId } = req.params;
@@ -517,7 +517,7 @@ movieRouter.get('/movies/:movieId', adminAuth, adminMiddleware, async (req, res)
  * GET /movies
  * Admin only: get all movies
  */
-movieRouter.get("/movies",adminAuth,adminMiddleware,async (req, res) => {
+movieRouter.get("/movies",adminAuth,async (req, res) => {
     try {
       // 1 validate and parse query params (page, limit)
       let { page = 1, limit = 3 } = req.query;

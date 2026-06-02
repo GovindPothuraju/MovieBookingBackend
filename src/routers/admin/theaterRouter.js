@@ -1,6 +1,6 @@
 const express=require('express');
 const mongoose = require('mongoose');
-const {adminAuth , adminMiddleware} = require("../../middleware/adminAuth");
+const adminAuth = require("../../middleware/adminAuth");
 
 const theaterRouter=express.Router();
 
@@ -12,7 +12,7 @@ const Screen = require("../../models/admin/screenModel");
  * POST /theaters
  * Admin only: create a new theater
  */
-theaterRouter.post("/theaters", adminAuth, adminMiddleware, async (req, res) => {
+theaterRouter.post("/theaters", adminAuth, async (req, res) => {
   try{
     // 1. Validate request body
     const {isValid,message,value}=validateCreateTheater(req);
@@ -71,7 +71,7 @@ theaterRouter.post("/theaters", adminAuth, adminMiddleware, async (req, res) => 
  * PATCH /theaters/:id
  * Admin only: update theater fields (partial updates supported)
  */
-theaterRouter.patch("/theaters/:id", adminAuth, adminMiddleware, async (req, res) => {
+theaterRouter.patch("/theaters/:id", adminAuth,  async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -154,7 +154,7 @@ theaterRouter.patch("/theaters/:id", adminAuth, adminMiddleware, async (req, res
  * DELETE /theaters/:id
  * Admin only: soft-delete (blocks if screens exist)
  */
-theaterRouter.delete('/theaters/:id', adminAuth, adminMiddleware, async (req, res) => {
+theaterRouter.delete('/theaters/:id', adminAuth,  async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -216,7 +216,7 @@ theaterRouter.delete('/theaters/:id', adminAuth, adminMiddleware, async (req, re
  * GET /theaters/:id
  * Authenticated: get theater by ID (includes screens)
  */
-theaterRouter.get('/theaters/:id', adminAuth, adminMiddleware,async (req, res) => {
+theaterRouter.get('/theaters/:id', adminAuth, async (req, res) => {
   try {
     // 1. validate theater id
     const { id } = req.params;
@@ -273,7 +273,7 @@ theaterRouter.get('/theaters/:id', adminAuth, adminMiddleware,async (req, res) =
  * GET /theaters
  * Public: list active theaters with optional ?city= and pagination
  */
-theaterRouter.get("/theaters", async (req,res)=>{
+theaterRouter.get("/theaters", adminAuth ,async (req,res)=>{
   try{
     // 1. extract query params like city , page , limit
     let {city, page =1, limit = 2} = req.query;

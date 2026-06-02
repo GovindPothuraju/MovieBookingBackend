@@ -1,6 +1,6 @@
 # QuickMovie User API Documentation
 
-The QuickMovie User API is a RESTful API built with Node.js and Express, providing movie browsing, seat booking, payment handling, and user account management features.
+The QuickMovie User API is a RESTful API built with Node.js and Express, providing movie browsing, show discovery, seat booking, payment handling, and user account management features.
 
 **Base URL**: `http://localhost:3000/api/users`
 
@@ -27,32 +27,17 @@ Browse movies currently available for booking.
 | Endpoint | Method | Auth | Description |
 | :--- | :--- | :--- | :--- |
 | `/movies` | `GET` | Public | List all active movies |
-| `/movies/:id` | `GET` | Public | Get movie details by ID |
-| `/movies/:id/shows` | `GET` | Public | Get all available shows for a movie |
-
----
-
-## 🎭 Theaters
-
-Browse theaters and available shows.
-
-| Endpoint | Method | Auth | Description |
-| :--- | :--- | :--- | :--- |
-| `/theaters` | `GET` | Public | List all theaters |
-| `/theaters/:id` | `GET` | Public | Get theater details by ID |
-| `/theaters/:id/shows` | `GET` | Public | Get all shows for a theater |
+| `/movies/:movieId` | `GET` | Public | Get movie details by ID |
 
 ---
 
 ## 📅 Shows
 
-View scheduled shows and live seat availability.
+View scheduled shows, theaters, timings, and live seat availability.
 
 | Endpoint | Method | Auth | Description |
 | :--- | :--- | :--- | :--- |
-| `/shows` | `GET` | Public | List all available shows |
-| `/shows/:id` | `GET` | Public | Get show details by ID |
-| `/shows/:id/seats` | `GET` | Protected | Get live seat availability for a show |
+| `/shows/:showId/seats` | `GET` | Protected | Get live seat availability for a show |
 
 ---
 
@@ -64,8 +49,8 @@ Book tickets and manage bookings.
 | :--- | :--- | :--- | :--- |
 | `/bookings` | `POST` | Protected | Create a new booking |
 | `/bookings/me` | `GET` | Protected | Get current user's bookings |
-| `/bookings/:id` | `GET` | Protected | Get booking details by ID |
-| `/bookings/:id/cancel` | `PATCH` | Protected | Cancel a booking |
+| `/bookings/:bookingId` | `GET` | Protected | Get booking details by ID |
+| `/bookings/:bookingId/cancel` | `PATCH` | Protected | Cancel a booking |
 
 ---
 
@@ -81,18 +66,6 @@ Handle payment processing and payment tracking.
 
 ---
 
-## ❤️ Wishlist
-
-Save favorite movies for later.
-
-| Endpoint | Method | Auth | Description |
-| :--- | :--- | :--- | :--- |
-| `/wishlist` | `GET` | Protected | Get user's wishlist |
-| `/wishlist/:movieId` | `POST` | Protected | Add movie to wishlist |
-| `/wishlist/:movieId` | `DELETE` | Protected | Remove movie from wishlist |
-
----
-
 ## 👤 Profile
 
 Manage user profile and account information.
@@ -103,7 +76,6 @@ Manage user profile and account information.
 | `/profile` | `PATCH` | Protected | Update user profile |
 
 ---
-
 
 ## 📊 User Analytics
 
@@ -116,6 +88,15 @@ Track user booking activity and spending.
 
 ---
 
+## 🚀 Error Handling
+
+Errors follow a standard format:
+
+```json
+{
+  "success": false,
+  "message": "Detailed error message"
+}
 
 # QuickMovie Backend API Documentation
 

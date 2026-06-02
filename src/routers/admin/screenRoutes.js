@@ -1,6 +1,6 @@
 const express=require('express');
 const mongoose = require('mongoose');
-const {adminAuth , adminMiddleware} = require("../../middleware/adminAuth");
+const adminAuth = require("../../middleware/adminAuth");
 
 const screenRouter=express.Router();
 
@@ -14,7 +14,7 @@ const Screen = require("../../models/admin/screenModel");
  * POST /theaters/:theaterId/screens
  * Admin only: create a new screen under a theater
  */
-screenRouter.post('/theaters/:theaterId/screens', adminAuth, adminMiddleware, async (req, res) => {
+screenRouter.post('/theaters/:theaterId/screens', adminAuth, async (req, res) => {
   try {
     // 1. Validate request (theaterId param + body)
     const result = validateCreateScreen(req);
@@ -76,7 +76,7 @@ screenRouter.post('/theaters/:theaterId/screens', adminAuth, adminMiddleware, as
  * PATCH /screens/:screenId
  * Admin only: partially update screen (e.g., status, type)
  */
-screenRouter.patch("/screens/:screenId", adminAuth, adminMiddleware, async (req, res) => {
+screenRouter.patch("/screens/:screenId", adminAuth, async (req, res) => {
   try {
     // 1. Validate partial update data
     const result = validatePartialScreenUpdate(req);
@@ -174,7 +174,7 @@ screenRouter.patch("/screens/:screenId", adminAuth, adminMiddleware, async (req,
  * DELETE /screens/:screenId
  * Admin only: delete a screen (soft delete recommended)
  */
-screenRouter.delete("/screens/:id" ,adminAuth, adminMiddleware , async (req,res)=>{
+screenRouter.delete("/screens/:id" ,adminAuth, async (req,res)=>{
     try{
       // 1. Validate screenId param
       const { id } = req.params;
@@ -218,7 +218,7 @@ screenRouter.delete("/screens/:id" ,adminAuth, adminMiddleware , async (req,res)
  * GET /theaters/:theaterId/screens
  * Admin Authenticated: list screens for a theater
  */
-screenRouter.get('/theaters/:theaterId/screens',adminAuth, adminMiddleware ,async (req, res) => {
+screenRouter.get('/theaters/:theaterId/screens',adminAuth,async (req, res) => {
   try{
     // 1. validate theater id
     const { theaterId } = req.params;

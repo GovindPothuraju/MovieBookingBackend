@@ -128,51 +128,5 @@ movieRouter.get("/movies/:id", userAuth, async (req, res) => {
   }
 });
 
-/**
- * GET /movies/:id/shows
- * User: get all available shows for a movie
- */
-movieRouter.get('/movies/:id/shows', userAuth, async (req, res) => {
-  try{
-    // 1.extract details from query
-    const {id} = req.params;
-    // 2.validate id
-    if(!Mongoose.Types.ObjectId.isValid(id)){
-      return res.status(400).json({
-        success: false,
-        message: "Invalid movie ID"
-      });
-    }
-    // 3.find movie
-    const movie = await Movie.findById(id).select("title").lean();
-    if(!movie){
-      return res.status(404).json({
-        success: false,
-        message: "Movie not found"
-      });
-    }
-     // 4. find all shows for the movie
-    const shows = await Show.find({
-      movieId: id,
-    }).populate("theaterId", "name location")
-    .populate("screenId", "name")
-    .select("showTime priceMap status")
-    .lean();
-
-    // 5. response
-    return res.status(200).json({
-      success: true,
-      data: shows,
-      movieTitle: movie.title,
-      totalShows: shows.length
-    });
-  } 
-  catch(err){
-    res.status(500).json({
-      success: false,
-      message: "Internal server error"
-    });
-  } 
-});
 
 module.exports = movieRouter;

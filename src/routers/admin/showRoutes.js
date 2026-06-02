@@ -10,7 +10,7 @@ const Theater = require('../../models/admin/theaterModel');
 const Screen = require('../../models/admin/screenModel');
 const Seat = require('../../models/admin/seatSchema');
 
-const {adminAuth, adminMiddleware} = require('../../middleware/adminAuth');
+const adminAuth = require('../../middleware/adminAuth');
 const { validateShowInput,validateShowUpdateInput } = require('../../validators/showValidator');
 
 // dynamic show status (if show is ended, mark as completed; if cancelled, mark as cancelled; else scheduled)
@@ -28,7 +28,7 @@ const getShowStatus = (show) => {
  * POST /shows
  * Admin only: create a new show
  */
-showRouter.post('/shows', adminAuth, adminMiddleware, async (req, res) => {
+showRouter.post('/shows', adminAuth,  async (req, res) => {
   try {
     // 1 validate input
     const { value, error } = validateShowInput(req);
@@ -172,7 +172,7 @@ showRouter.post('/shows', adminAuth, adminMiddleware, async (req, res) => {
  * GET /shows/:id
  * Admin only: get show details by ID
  */
-showRouter.get('/shows/:id', adminAuth, adminMiddleware, async (req, res) => {
+showRouter.get('/shows/:id', adminAuth, async (req, res) => {
   try {
     // 1 validate showId
     const showId = req.params.id;
@@ -210,7 +210,7 @@ showRouter.get('/shows/:id', adminAuth, adminMiddleware, async (req, res) => {
  * PATCH /shows/:id
  * Admin only: update show details (priceMap, status)
  */
-showRouter.patch('/shows/:id', adminAuth, adminMiddleware, async (req, res) => {
+showRouter.patch('/shows/:id', adminAuth, async (req, res) => {
   try {
     // 1 validate showId
     const showId = req.params.id;
@@ -313,7 +313,7 @@ showRouter.patch('/shows/:id', adminAuth, adminMiddleware, async (req, res) => {
  * GET /shows
  * Admin only: list all shows with pagination & filters
  */
-showRouter.get('/shows', adminAuth, adminMiddleware, async (req, res) => {
+showRouter.get('/shows', adminAuth, async (req, res) => {
   try {
     // 1 parse query params
     let { page = 1, limit = 10, movieId, theaterId, date, status } = req.query;

@@ -18,6 +18,7 @@ const bookingRoutes = require('./routers/admin/bookingRoutes');
 // User Routes
 const userRoutes = require('./routers/users/userRoutes');
 const userMovieRoutes = require('./routers/users/movieRoutes');
+const userShowRoutes = require('./routers/users/showRoutes');
 
 app.use(cors());
 app.use(express.json());
@@ -35,6 +36,11 @@ app.use('/',bookingRoutes);
 // User routes
 app.use('/user/',userRoutes);
 app.use('/user/',userMovieRoutes);
+app.use('/user/',userShowRoutes);
+
+app.use("/health", (req, res) => {
+    res.status(200).json({ status: "OK", message: "Server is running smoothly" });
+});
 
 connectDB().then(()=>{
     console.log("Database connected successfully");

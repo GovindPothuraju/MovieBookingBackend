@@ -6,15 +6,17 @@ const Seat = require("../../models/admin/seatSchema");
 const Theater = require("../../models/admin/theaterModel");
 const Screen = require("../../models/admin/screenModel");
 
-const { adminAuth, adminMiddleware } = require("../../middleware/adminAuth");
+const adminAuth = require("../../middleware/adminAuth");
+
 
 // ------------------- Screen Seat Management ------------------ //
+
 
 /**
  * POST /screens/:screenId/layout
  * Admin only: generate seat layout for a screen (runs once)
  */
-seatRouter.post("/screens/:screenId/layout", adminAuth, adminMiddleware , async (req, res) => {
+seatRouter.post("/screens/:screenId/layout", adminAuth, async (req, res) => {
   try{
     // 1. validate input
     const { screenId } = req.params;
@@ -109,7 +111,7 @@ seatRouter.post("/screens/:screenId/layout", adminAuth, adminMiddleware , async 
  * GET /screens/:screenId/seats
  * Adimn only: get all seats grouped by row ( it is admin purpose only)
  */
-seatRouter.get("/screens/:screenId/seats", adminAuth, adminMiddleware ,async (req, res) => {
+seatRouter.get("/screens/:screenId/seats", adminAuth, async (req, res) => {
   try{
     // 1. validate input
     const { screenId } = req.params;
@@ -168,7 +170,7 @@ seatRouter.get("/screens/:screenId/seats", adminAuth, adminMiddleware ,async (re
  * PUT /screens/:screenId/layout
  * Admin only: update seat layout (only if no active shows/bookings)
  */
-seatRouter.put("/screens/:screenId/layout",adminAuth,adminMiddleware,async (req, res) => {
+seatRouter.put("/screens/:screenId/layout", adminAuth, async (req, res) => {
     try {
       // 1. validate screenId
       const { screenId } = req.params;
@@ -283,7 +285,7 @@ seatRouter.put("/screens/:screenId/layout",adminAuth,adminMiddleware,async (req,
  * DELETE /screens/:screenId/layout
  * Admin only: delete seat layout (safe delete)
  */
-seatRouter.delete("/screens/:screenId/layout",adminAuth,adminMiddleware,async (req, res) => {
+seatRouter.delete("/screens/:screenId/layout", adminAuth, async (req, res) => {
     try {
       // 1. validate screenId
       const { screenId } = req.params;
