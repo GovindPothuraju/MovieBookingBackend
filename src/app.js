@@ -38,13 +38,13 @@ app.use('/user/',userRoutes);
 app.use('/user/',userMovieRoutes);
 app.use('/user/',userShowRoutes);
 
-app.use("/health", (req, res) => {
+app.use("/healthz", (req, res) => {
     res.status(200).json({ status: "OK", message: "Server is running smoothly" });
 });
 
 connectDB().then(()=>{
     console.log("Database connected successfully");
-    const port=3000;
+    const port=process.env.PORT || 5000;
     app.listen(port,()=>{
         console.log(`Server is running on port ${port}`);
     })
