@@ -107,13 +107,17 @@ userRouter.post('/login', async (req, res) => {
     // 6. generate jwt
     const token = await user.getJWT();
     // 7. set cookie
+
     const cookieExpireDays = parseInt(process.env.COOKIE_EXPIRE) || 7;
+    const maxAgeMs = cookieExpireDays * 24 * 60 * 60 * 1000;
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: cookieExpireDays * 24 * 60 * 60 * 1000,
+      secure: true,          // REQUIRED for sameSite: "none"
+      sameSite: "none",      // REQUIRED for cross-site cookie usage
+      maxAge: maxAgeMs,
+      expires: new Date(Date.now() + maxAgeMs),
+      path: "/",             // ensure cookie applies to all routes
     });
     // 8. response
     return res.status(200).json({
