@@ -111,7 +111,7 @@ userRouter.post('/login', async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
       maxAge: cookieExpireDays * 24 * 60 * 60 * 1000,
       expires: new Date(
         Date.now() + cookieExpireDays * 24 * 60 * 60 * 1000
