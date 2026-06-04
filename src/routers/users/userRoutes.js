@@ -114,9 +114,6 @@ userRouter.post('/login', async (req, res) => {
       secure: true,
       sameSite: "none",
       maxAge: cookieExpireDays * 24 * 60 * 60 * 1000,
-      expires: new Date(
-        Date.now() + cookieExpireDays * 24 * 60 * 60 * 1000
-      ),
     });
     // 8. response
     return res.status(200).json({
