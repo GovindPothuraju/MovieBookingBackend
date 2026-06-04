@@ -5,6 +5,7 @@ const cors=require('cors');
 const cookieParser = require("cookie-parser");
 
 
+
 const connectDB = require('./config/databse');
 // Admin Routes 
 const adminRoutes = require('./routers/admin/adminRoutes');
@@ -20,7 +21,15 @@ const userRoutes = require('./routers/users/userRoutes');
 const userMovieRoutes = require('./routers/users/movieRoutes');
 const userShowRoutes = require('./routers/users/showRoutes');
 
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173", // Vite local
+      "https://your-frontend-domain.vercel.app", // production later
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(cookieParser());
 
