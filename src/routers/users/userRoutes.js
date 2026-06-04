@@ -4,6 +4,7 @@ const bcrypt = require("bcrypt");
 
 const User = require('../../models/users/userModel');
 const { validateUserRegistration } = require('../../validators/userValidators/userValidator');
+const { userAuth } = require('../../middleware/userAuth');
 
 /**
  * POST /auth/register
@@ -156,11 +157,38 @@ userRouter.post('/logout',  async (req, res) => {
   }
 });
 
+/** 
+ * GET /auth/profile
+ * User: get current user profile
+*/
+
+userRouter.get("/profile", userAuth, async (req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      message: "Profile fetched successfully",
+      data: {
+        _id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        phone: req.user.phone,
+        avatar: req.user.avatar,
+        role: req.user.role,
+        isVerified: req.user.isVerified,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
 
 /**
  * PATCH /auth/change-password
  * User: change current account password
  */
-userRouter.patch('/auth/change-password', async (req, res) => {});
+userRouter.patch('/auth/change-password', userAuth, async (req, res) => {});
 
 module.exports = userRouter;
