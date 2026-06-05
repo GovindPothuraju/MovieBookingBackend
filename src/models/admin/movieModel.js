@@ -130,7 +130,6 @@ movieSchema.pre("save", function (next) {
       Date.now();
   }
 
-  next();
 });
 
 module.exports = mongoose.model("Movie", movieSchema);

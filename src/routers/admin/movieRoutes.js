@@ -393,6 +393,7 @@ movieRouter.patch('/movies/:movieId/status',adminAuth, async (req, res) => {
       });
 
     } catch (err) {
+      console.error(err);
       return res.status(500).json({
         success: false,
         message: err.message || "Failed to update movie status",
