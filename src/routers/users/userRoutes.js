@@ -6,6 +6,8 @@ const User = require('../../models/users/userModel');
 const { validateUserRegistration } = require('../../validators/userValidators/userValidator');
 const { userAuth } = require('../../middleware/userAuth');
 
+const SALT_ROUNDS = 10;
+
 /**
  * POST /auth/register
  * User: register a new account
@@ -20,15 +22,18 @@ userRouter.post('/register', async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Registration failed",
-        error: error
+        error: error.details?.[0]?.message || error.message
       });
     }
 
     // 2. Extract values
     const { name, email, password, phone } = value;
 
-    // 3. Check existing user
-    const existingUser = await User.findOne({ email });
+    // 3. Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // 4. Check existing user
+    const existingUser = await User.findOne({ email: normalizedEmail });
 
     if (existingUser) {
       return res.status(409).json({
@@ -37,21 +42,21 @@ userRouter.post('/register', async (req, res) => {
       });
     }
 
-    // 4. Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // 5. Hash password
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-    // 5. Create user
+    // 6. Create user
     const newUser = new User({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       ...(phone && { phone })
     });
 
-    // 6. Save
+    // 7. Save
     await newUser.save();
 
-    // 7. Success response
+    // 8. Success response
     return res.status(201).json({
       success: true,
       message: "User registered successfully"
@@ -76,64 +81,84 @@ userRouter.post('/register', async (req, res) => {
  * User: login and receive JWT token
  */
 userRouter.post('/login', async (req, res) => {
-  try{
+  try {
+
     // 1. Extract credentials
     const { email, password } = req.body;
+
     // 2. Validate email,password
-    if(!email || !password){
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
         message: "Email and password are required"
       });
     }
-    // 3. find user by email
+
+    // 3. Normalize email
     const normalizedEmail = email.toLowerCase().trim();
-    const user = await User.findOne({ email: normalizedEmail }).select("+password");
-    // 4. validate user
-    if(!user){
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
-    }
-    // 5. validate password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if(!isMatch){
+
+    // 4. Find user by email
+    const user = await User.findOne({
+      email: normalizedEmail
+    }).select("+password");
+
+    // 5. Validate user
+    if (!user) {
       return res.status(401).json({
         success: false,
         message: "Invalid credentials"
       });
     }
-    // 6. generate jwt
-    const token = await user.getJWT();
-    // 7. set cookie
 
-    const cookieExpireDays = parseInt(process.env.COOKIE_EXPIRE) || 7;
-    const maxAgeMs = cookieExpireDays * 24 * 60 * 60 * 1000;
+    // 6. Validate password
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials"
+      });
+    }
+
+    // 7. Generate jwt
+    const token = await user.getJWT();
+
+    // 8. Set cookie
+    const cookieExpireDays =
+      parseInt(process.env.COOKIE_EXPIRE) || 7;
+
+    const maxAgeMs =
+      cookieExpireDays * 24 * 60 * 60 * 1000;
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: true,          // REQUIRED for sameSite: "none"
-      sameSite: "none",      // REQUIRED for cross-site cookie usage
+      secure: true,          // required for sameSite:none
+      sameSite: "none",      // required for cross-origin cookies
       maxAge: maxAgeMs,
       expires: new Date(Date.now() + maxAgeMs),
-      path: "/",             // ensure cookie applies to all routes
+      path: "/"
     });
-    // 8. response
+
+    // 9. Response
     return res.status(200).json({
       success: true,
       message: "Login successful",
-      data :{
-          id: user._id,
-          name: user.name,
-          email: user.email
-        }
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email
       }
-    );
-  }catch(err){
+    });
+
+  } catch (err) {
+
     return res.status(500).json({
       success: false,
       message: "Login failed",
+      error:
+        process.env.NODE_ENV === "development"
+          ? err.message
+          : "Internal server error"
     });
   }
 });
@@ -143,28 +168,44 @@ userRouter.post('/login', async (req, res) => {
  * POST /auth/logout
  * User: logout current user
  */
-userRouter.post('/logout',  async (req, res) => {
-  try{
-    res.cookie("token", null, {httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", expires: new Date(Date.now())});
+userRouter.post('/logout', async (req, res) => {
+  try {
+
+    // 1. Clear cookie
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/"
+    });
+
+    // 2. Response
     return res.status(200).json({
       success: true,
       message: "Logout successful"
     });
-  }catch(err){
+
+  } catch (err) {
+
     return res.status(500).json({
       success: false,
-      message: "Logout failed"
+      message: "Logout failed",
+      error:
+        process.env.NODE_ENV === "development"
+          ? err.message
+          : "Internal server error"
     });
   }
 });
 
-/** 
+
+/**
  * GET /auth/profile
  * User: get current user profile
-*/
-
-userRouter.get("/profile", userAuth, async (req, res) => {
+ */
+userRouter.get('/profile', userAuth, async (req, res) => {
   try {
+
     return res.status(200).json({
       success: true,
       message: "Profile fetched successfully",
@@ -175,21 +216,27 @@ userRouter.get("/profile", userAuth, async (req, res) => {
         phone: req.user.phone,
         avatar: req.user.avatar,
         role: req.user.role,
-        isVerified: req.user.isVerified,
-      },
+        isVerified: req.user.isVerified
+      }
     });
+
   } catch (err) {
+
     return res.status(500).json({
       success: false,
-      message: err.message,
+      message: err.message
     });
   }
 });
+
 
 /**
  * PATCH /auth/change-password
  * User: change current account password
  */
-userRouter.patch('/auth/change-password', userAuth, async (req, res) => {});
+userRouter.patch('/change-password', userAuth, async (req, res) => {
+
+});
+
 
 module.exports = userRouter;
