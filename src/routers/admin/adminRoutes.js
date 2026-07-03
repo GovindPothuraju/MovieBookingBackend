@@ -327,24 +327,25 @@ adminRouter.post("/admin/logout", (req, res) => {
 
 adminRouter.get("/admin/profile", adminAuth , async (req,res)=>{
   try{
-    const admin = req.admin;
 
     return res.status(200).json({
       sucess : true,
-      admin:{
-        "id" : admin._id,
-        "name" : admin.name,
-        "email" : admin.email,
-        "lastLogin" : admin.lastLogin
+      message: "Profile fetched successfully",
+      data:{
+        "id" : req.admin._id,
+        "name" : req.admin.name,
+        "email" : req.admin.email,
+        "lastLogin" : req.admin.lastLogin
       }
     })
-  }catch(Err){
+  }catch(err){
     return res.status(500).json({
-      success:false,
-      message:"Intenal server error"
-    })
+      success: false,
+      message: err.message
+    });
   }
 })
+
 
 
 module.exports = adminRouter;
