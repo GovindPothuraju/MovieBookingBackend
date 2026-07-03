@@ -3,41 +3,62 @@ const jwt = require("jsonwebtoken");
 
 const adminSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-      minlength: 3,
-      maxlength: 50,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
-      index: true,
-    },
-    password: {
-      type: String,
-      required: true,
-      minlength: 6,
-      select: false, //  never return password
-    },
-    role: {
-      type: String,
-      enum: ["ADMIN", "SUPER_ADMIN"],
-      default: "ADMIN",
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
-    lastLogin: {
-      type: Date,
-    },
+    name:{ type:String, required:true, trim:true,minlength:3,maxlength:50},
+    email:{
+          type:String,
+          required:true,
+          unique:true,
+          lowercase:true,
+          trim:true,
+          index:true
+      },
+
+      password:{
+          type:String,
+          required:true,
+          minlength:6,
+          select:false
+      },
+
+      role:{
+          type:String,
+          enum:["ADMIN","SUPER_ADMIN"],
+          default:"ADMIN"
+      },
+
+      isActive:{
+          type:Boolean,
+          default:true
+      },
+
+      isVerified:{
+          type:Boolean,
+          default:true
+      },
+
+      lastLogin:{
+          type:Date
+      },
+
+      otp:{
+          type:String,
+          default:null,
+          select:false
+      },
+
+      otpExpires:{
+          type:Date,
+          default:null,
+          select:false
+      },
+
+      otpAttempts:{
+          type:Number,
+          default:0
+      }
+
   },
-  { timestamps: true }
+  {timestamps:true}
 );
 
 adminSchema.methods.getJWT = async function () {
