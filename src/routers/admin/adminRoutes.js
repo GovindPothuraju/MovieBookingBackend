@@ -227,7 +227,7 @@ adminRouter.post("/admin/verify-otp" ,async (req,res)=>{
     await admin.save();
 
      // 7. Generate jwt
-    const token = await user.getJWT();
+    const token = await admin.getJWT();
 
     // 8. Set cookie
     const cookieExpireDays =
@@ -241,10 +241,9 @@ adminRouter.post("/admin/verify-otp" ,async (req,res)=>{
       secure: true,          // required for sameSite:none
       sameSite: "none",      // required for cross-origin cookies
       maxAge: maxAgeMs,
-      expires: new Date(Date.now() + maxAgeMs),
       path: "/"
     });
-    
+
     // 10. Success
     return res.status(200).json({
       success: true,
@@ -337,15 +336,15 @@ adminRouter.get("/admin/profile", adminAuth , async (req,res)=>{
   try{
 
     return res.status(200).json({
-      sucess : true,
+      success: true,
       message: "Profile fetched successfully",
-      data:{
-        "id" : req.admin._id,
-        "name" : req.admin.name,
-        "email" : req.admin.email,
-        "lastLogin" : req.admin.lastLogin
-      }
-    })
+      data: {
+        id: req.admin._id,
+        name: req.admin.name,
+        email: req.admin.email,
+        lastLogin: req.admin.lastLogin,
+      },
+    });
   }catch(err){
     return res.status(500).json({
       success: false,
