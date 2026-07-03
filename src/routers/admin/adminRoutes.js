@@ -11,9 +11,12 @@ const crypto = require("crypto");
 
 const { validateAdminRegister } = require("../../validators/adminValidator");
 const { validateAdminLogin } = require("../../validators/adminValidator");
+const {getLoginOTPTemplate} = require("../../utils/emailTemplate");
 
 const Admin = require("../../models/admin/AdminModel");
 const sendEmail = require("../../utils/sendEmail");
+const adminAuth = require("../../middleware/adminAuth");
+
 
 adminRouter.post("/admin/register", async (req, res) => {
   try {
@@ -135,83 +138,8 @@ adminRouter.post("/admin/login", async (req, res) => {
       to: admin.email,
       subject: "Your Admin Login OTP",
       text: `Your OTP is ${otp}. This OTP is valid for 5 minutes.`,
-      html: `
-      <div style="margin:0;padding:40px 20px;background-color:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">
-        <table align="center" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
-
-          <tr>
-            <td style="background:#2563eb;padding:24px;text-align:center;">
-              <h1 style="margin:0;color:#ffffff;font-size:28px;">
-                Admin Login
-              </h1>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding:40px 32px;">
-
-              <h2 style="margin:0 0 16px;color:#111827;font-size:24px;">
-                Verify Your Identity
-              </h2>
-
-              <p style="margin:0 0 24px;color:#4b5563;font-size:16px;line-height:1.7;">
-                Use the One-Time Password (OTP) below to complete your login.
-              </p>
-
-              <table align="center" cellpadding="0" cellspacing="8" style="margin:20px auto;">
-                <tr>
-                  ${otp
-                    .split("")
-                    .map(
-                      (digit) => `
-                        <td
-                          style="
-                            width:55px;
-                            height:65px;
-                            background:#f8fafc;
-                            border:2px solid #d1d5db;
-                            border-radius:8px;
-                            text-align:center;
-                            font-size:32px;
-                            font-weight:bold;
-                            color:#111827;
-                          "
-                        >
-                          ${digit}
-                        </td>
-                      `
-                    )
-                    .join("")}
-                </tr>
-              </table>
-
-              <p style="margin-top:24px;text-align:center;color:#dc2626;font-size:15px;font-weight:bold;">
-                This OTP is valid for only <strong>5 minutes</strong>.
-              </p>
-
-              <hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0;">
-
-              <p style="margin:0;color:#6b7280;font-size:14px;line-height:1.7;">
-                If you didn't request this login, you can safely ignore this email.
-                Your account remains secure.
-              </p>
-
-            </td>
-          </tr>
-
-          <tr>
-            <td style="background:#f9fafb;padding:20px;text-align:center;">
-              <p style="margin:0;font-size:13px;color:#9ca3af;">
-                © ${new Date().getFullYear()} Admin Panel. All rights reserved.
-              </p>
-            </td>
-          </tr>
-
-        </table>
-      </div>
-      `,
+      html: getLoginOTPTemplate(otp),
     });
-
     // 8. Response
     return res.status(200).json({
         success: true,
@@ -329,6 +257,58 @@ adminRouter.post("/admin/verify-otp" ,async (req,res)=>{
   }
 })
 
+adminRouter.post("/admin/resend-otp", async (req,res)=>{
+  try{
+    // 1. validate input
+    const {email} = req.body;
+    if(!email){
+      return res.status(400).json({
+        success:false,
+        message : "Email is required"
+      })
+    }
+
+    // 2. find admin by email
+    const admin = await Admin.findOne({email});
+    if(!admin){
+      return res.status(404).json({
+        success:false,
+        message : "Admin not found"
+      })
+    }
+
+    // 3. generate new OTP
+    const otp = crypto.randomInt(100000, 1000000).toString();
+    const hashedOtp = await bcrypt.hash(otp, Number(process.env.BCRYPT_SALT_ROUNDS))
+
+    // 4. save new otp  
+    admin.otp = hashedOtp;
+    admin.otpExpires = new Date(Date.now() + 5*60*1000); // valid only 5 minutes
+
+    await admin.save();
+
+    // 5. send otp to admin email
+    await sendEmail({
+      to: admin.email,
+      subject: "Your Admin Login OTP",
+      text: `Your OTP is ${otp}. This OTP is valid for 5 minutes.`,
+      html: getLoginOTPTemplate(otp),
+    });
+
+    return res.status(200).json({
+      success:true,
+      message: "OTP resent successfully",
+    });
+
+  }catch(err){
+    return res.status(500).json({
+      success:false,
+      message: "Internal server error",
+      error : err.message
+    })
+  }
+})
+
 adminRouter.post("/admin/logout", (req, res) => {
   try{
     res.cookie("token",null,{httpOnly:true,secure: true,sameSite: "None", expires: new Date(Date.now())});
@@ -345,6 +325,26 @@ adminRouter.post("/admin/logout", (req, res) => {
   }
 });
 
+adminRouter.get("/admin/profile", adminAuth , async (req,res)=>{
+  try{
+    const admin = req.admin;
+
+    return res.status(200).json({
+      sucess : true,
+      admin:{
+        "id" : admin._id,
+        "name" : admin.name,
+        "email" : admin.email,
+        "lastLogin" : admin.lastLogin
+      }
+    })
+  }catch(Err){
+    return res.status(500).json({
+      success:false,
+      message:"Intenal server error"
+    })
+  }
+})
 
 
 module.exports = adminRouter;
