@@ -226,17 +226,25 @@ adminRouter.post("/admin/verify-otp" ,async (req,res)=>{
     admin.lastLogin = new Date();
     await admin.save();
 
-    // 8. generate JWT
-    const token = await admin.getJWT();
+     // 7. Generate jwt
+    const token = await user.getJWT();
 
-    const cookieExpire = Number(process.env.JWT_COOKIE_EXPIRE) || 7;
+    // 8. Set cookie
+    const cookieExpireDays =
+      parseInt(process.env.COOKIE_EXPIRE) || 7;
+
+    const maxAgeMs =
+      cookieExpireDays * 24 * 60 * 60 * 1000;
+
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge:cookieExpire *24 * 60 * 60 * 1000,
-   });
-
+      secure: true,          // required for sameSite:none
+      sameSite: "none",      // required for cross-origin cookies
+      maxAge: maxAgeMs,
+      expires: new Date(Date.now() + maxAgeMs),
+      path: "/"
+    });
+    
     // 10. Success
     return res.status(200).json({
       success: true,
