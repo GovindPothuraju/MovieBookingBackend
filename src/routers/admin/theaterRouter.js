@@ -213,6 +213,72 @@ theaterRouter.delete('/theaters/:id', adminAuth,  async (req, res) => {
 });
 
 /**
+ * GET /theaters/deleted
+ * Admin only: list deleted (inactive) theaters with optional ?city= and pagination
+ */
+theaterRouter.get("/theaters/deleted", adminAuth, async (req, res) => {
+  try {
+    // 1. Extract query params
+    let { city, page = 1, limit = 10 } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+
+    if (isNaN(page) || page < 1) page = 1;
+    if (isNaN(limit) || limit < 1) limit = 10;
+    if (limit > 50) limit = 50;
+
+    // 2. Build query
+    const query = {
+      isActive: false,
+    };
+
+    if (city) {
+      query.city = city.trim();
+    }
+
+    // 3. Pagination
+    const skip = (page - 1) * limit;
+
+    // 4. Fetch deleted theaters
+    const theaters = await Theater.find(query)
+      .skip(skip)
+      .limit(limit)
+      .sort({ updatedAt: -1 })
+      .select("name city address amenities contactEmail contactPhone");
+
+    // 5. Count
+    const totalTheaters = await Theater.countDocuments(query);
+
+    // 6. Pagination metadata
+    const pagination = {
+      totalTheaters,
+      page,
+      limit,
+      totalPages: Math.ceil(totalTheaters / limit),
+      hasNextPage: page < Math.ceil(totalTheaters / limit),
+      hasPrevPage: page > 1,
+    };
+
+    // 7. Response
+    return res.status(200).json({
+      success: true,
+      message: "Deleted theaters fetched successfully",
+      data: theaters,
+      pagination,
+    });
+
+  } catch (err) {
+    console.error("Get Deleted Theaters Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Server error during fetching deleted theaters",
+    });
+  }
+});
+
+/**
  * GET /theaters/:id
  * Authenticated: get theater by ID (includes screens)
  */
@@ -326,70 +392,6 @@ theaterRouter.get("/theaters", adminAuth ,async (req,res)=>{
   }
 });
 
-/**
- * GET /theaters/deleted
- * Admin only: list deleted (inactive) theaters with optional ?city= and pagination
- */
-theaterRouter.get("/theaters/deleted", adminAuth, async (req, res) => {
-  try {
-    // 1. Extract query params
-    let { city, page = 1, limit = 10 } = req.query;
 
-    page = parseInt(page);
-    limit = parseInt(limit);
-
-    if (isNaN(page) || page < 1) page = 1;
-    if (isNaN(limit) || limit < 1) limit = 10;
-    if (limit > 50) limit = 50;
-
-    // 2. Build query
-    const query = {
-      isActive: false,
-    };
-
-    if (city) {
-      query.city = city.trim();
-    }
-
-    // 3. Pagination
-    const skip = (page - 1) * limit;
-
-    // 4. Fetch deleted theaters
-    const theaters = await Theater.find(query)
-      .skip(skip)
-      .limit(limit)
-      .sort({ updatedAt: -1 })
-      .select("name city address amenities contactEmail contactPhone");
-
-    // 5. Count
-    const totalTheaters = await Theater.countDocuments(query);
-
-    // 6. Pagination metadata
-    const pagination = {
-      totalTheaters,
-      page,
-      limit,
-      totalPages: Math.ceil(totalTheaters / limit),
-      hasNextPage: page < Math.ceil(totalTheaters / limit),
-      hasPrevPage: page > 1,
-    };
-
-    // 7. Response
-    return res.status(200).json({
-      success: true,
-      message: "Deleted theaters fetched successfully",
-      data: theaters,
-      pagination,
-    });
-
-  } catch (err) {
-    console.error("Get Deleted Theaters Error:", err);
-
-    return res.status(500).json({
-      success: false,
-      message: err.message || "Server error during fetching deleted theaters",
-    });
-  }
-});
 
 module.exports=theaterRouter;
