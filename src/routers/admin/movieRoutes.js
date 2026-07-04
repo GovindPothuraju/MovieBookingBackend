@@ -8,23 +8,25 @@ const upload = require('../../config/multer');
 const { validateCreateMovie , validateUpdateMovie} = require('../../validators/movieValidator');
 const adminAuth = require('../../middleware/adminAuth');
 const uploadToCloudinary = require('../../utils/cloudinaryUpload');
-const parseMovieFormData = require("../../middlewares/parseMovieFormData");
+const parseMovieFormData = require("../../middleware/parseMovieFormData");
 
 /**
  * POST /movies
  * Admin only: create a new movie
  */
-movieRouter.post('/movies',adminAuth,
+movieRouter.post(
+  "/movies",
+  adminAuth,
   upload.fields([
     { name: "poster", maxCount: 1 },
     { name: "castImages", maxCount: 10 },
-    { name: "crewImages", maxCount: 10 }
+    { name: "crewImages", maxCount: 10 },
   ]),
   parseMovieFormData,
   async (req, res) => {
     try {
-
-      // 1. Validate
+      console.log(req.body);
+      // 1. Validate Request
       const { error, value } = validateCreateMovie(req);
 
       if (error) {
@@ -34,28 +36,28 @@ movieRouter.post('/movies',adminAuth,
         });
       }
 
-      // 2. Poster check
-      if (!req.files || !req.files.poster) {
+      // 2. Poster Validation
+      if (!req.files?.poster?.length) {
         return res.status(400).json({
           success: false,
-          message: "Poster image is required",
+          message: "Poster image is required.",
         });
       }
 
-      // 3. Duplicate check
-      const movieExists = await Movie.findOne({
+      // 3. Duplicate Movie Check
+      const existingMovie = await Movie.findOne({
         title: value.title,
-        releaseDate: value.releaseDate
+        releaseDate: value.releaseDate,
       });
 
-      if (movieExists) {
+      if (existingMovie) {
         return res.status(409).json({
           success: false,
-          message: "Movie already exists",
+          message: "Movie already exists.",
         });
       }
 
-      // 4. Upload poster
+      // 4. Upload Poster
       const posterUpload = await uploadToCloudinary(
         req.files.poster[0].buffer,
         "movies/posters"
@@ -63,76 +65,78 @@ movieRouter.post('/movies',adminAuth,
 
       const posterUrl = posterUpload.secure_url;
 
-      // 5. CAST HANDLING
-      let cast = [];
-      const castImages = req.files.castImages || [];
+      // ===========================
+      // CAST
+      // ===========================
+
       const castData = value.cast || [];
+      const castImages = req.files.castImages || [];
 
-      if (castData.length > 0 && castImages.length > 0) {
+      if (castImages.length && castData.length !== castImages.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Cast members and cast images count must match.",
+        });
+      }
 
-        if (castData.length !== castImages.length) {
-          return res.status(400).json({
-            success: false,
-            message: "Cast and images count mismatch",
-          });
-        }
+      let cast = [];
 
-        const castUploads = await Promise.all(
-          castImages.map(file =>
+      if (castImages.length) {
+        const uploadedCastImages = await Promise.all(
+          castImages.map((file) =>
             uploadToCloudinary(file.buffer, "movies/cast")
           )
         );
 
-        cast = castUploads.map((upload, index) => ({
-          name: castData[index].name,
-          image: upload.secure_url,
+        cast = castData.map((member, index) => ({
+          name: member.name,
+          image: uploadedCastImages[index].secure_url,
         }));
-
       } else {
-        // fallback (no images)
-        cast = castData.map(member => ({
+        cast = castData.map((member) => ({
           name: member.name,
           image: null,
         }));
       }
 
-      
-      // 6. CREW HANDLING
-     
-      let crew = [];
-      const crewImages = req.files.crewImages || [];
+      // ===========================
+      // CREW
+      // ===========================
+
       const crewData = value.crew || [];
+      const crewImages = req.files.crewImages || [];
 
-      if (crewData.length > 0 && crewImages.length > 0) {
+      if (crewImages.length && crewData.length !== crewImages.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Crew members and crew images count must match.",
+        });
+      }
 
-        if (crewData.length !== crewImages.length) {
-          return res.status(400).json({
-            success: false,
-            message: "Crew and images count mismatch",
-          });
-        }
+      let crew = [];
 
-        const crewUploads = await Promise.all(
-          crewImages.map(file =>
+      if (crewImages.length) {
+        const uploadedCrewImages = await Promise.all(
+          crewImages.map((file) =>
             uploadToCloudinary(file.buffer, "movies/crew")
           )
         );
 
-        crew = crewUploads.map((upload, index) => ({
-          name: crewData[index].name,
-          image: upload.secure_url,
+        crew = crewData.map((member, index) => ({
+          name: member.name,
+          image: uploadedCrewImages[index].secure_url,
         }));
-
       } else {
-        // fallback (no images)
-        crew = crewData.map(member => ({
+        crew = crewData.map((member) => ({
           name: member.name,
           image: null,
         }));
       }
 
-      
-      // 7. CREATE MOVIE
+      // ===========================
+      // CREATE MOVIE
+      // ===========================
+
       const movie = await Movie.create({
         ...value,
         posterUrl,
@@ -142,19 +146,19 @@ movieRouter.post('/movies',adminAuth,
 
       return res.status(201).json({
         success: true,
-        message: "Movie created successfully",
+        message: "Movie created successfully.",
         data: movie,
       });
-
     } catch (err) {
+      console.error("Create Movie Error:", err);
+
       return res.status(500).json({
         success: false,
-        message: err.message || "Failed to create movie",
+        message: err.message || "Failed to create movie.",
       });
     }
   }
 );
-
 
 
 /**

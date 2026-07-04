@@ -26,6 +26,8 @@ const movieSchema = new mongoose.Schema(
           "HORROR",
           "ROMANCE",
           "SCI-FI",
+          "ROMANCE",
+          "ANIMATION"
         ],
       },
     ],
