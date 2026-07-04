@@ -2,12 +2,12 @@ const validator = require("validator");
 
 const AMENITIES = [
   "PARKING",
-  "FOOD_COURT",
-  "WHEELCHAIR_ACCESSIBLE",
+  "FOOD COURT",
+  "WHEELCHAIR ACCESSIBLE",
   "AC",
   "DOLBY ATOMS",
   "IMAX",
-  "ONLINE_BOOKING",
+  "ONLINE BOOKING",
   "WIFI"
 ];
 
