@@ -591,3 +591,4 @@ movieRouter.get("/movies",adminAuth,async (req, res) => {
 );
 
 module.exports = movieRouter;
+

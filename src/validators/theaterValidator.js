@@ -2,14 +2,15 @@ const validator = require("validator");
 
 const AMENITIES = [
   "PARKING",
-  "FOOD COURT",
+  "FOOD_COURT",
   "WHEELCHAIR_ACCESSIBLE",
-  "RECLINER SEATS",
+  "AC",
   "DOLBY ATOMS",
   "IMAX",
-  "WIFI",
-  "ONLINE BOOKING"
+  "ONLINE_BOOKING",
+  "WIFI"
 ];
+
 
 const validateCreateTheater = (req) => {
   try {
