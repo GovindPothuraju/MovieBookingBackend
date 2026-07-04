@@ -1,7 +1,7 @@
 const validator = require("validator");
 
 const MAX_SEATS = 500;
-const SCREEN_TYPES = ["2D","STANDARD", "IMAX", "DOLBY", "4DX", "DRIVE_IN"]; // Consistent with schema
+const SCREEN_TYPES = ['IMAX', '4DX','2D','3D'] // Consistent with schema
 
 const validateCreateScreen = (req) => {
   try {

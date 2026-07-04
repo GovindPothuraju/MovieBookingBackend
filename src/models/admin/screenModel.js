@@ -48,7 +48,7 @@ const screenSchema = new mongoose.Schema(
     },
     screenType: {
       type: String,
-      enum: ['STANDARD', 'IMAX', 'DOLBY', '4DX', 'DRIVE_IN','2D'],
+      enum: ['IMAX', '4DX','2D','3D'],
       default: 'STANDARD',
     },
     isActive: {

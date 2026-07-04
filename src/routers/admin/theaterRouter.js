@@ -218,39 +218,33 @@ theaterRouter.delete('/theaters/:id', adminAuth,  async (req, res) => {
  */
 theaterRouter.get("/theaters/deleted", adminAuth, async (req, res) => {
   try {
-    // 1. Extract query params
     let { city, page = 1, limit = 10 } = req.query;
-
+ 
     page = parseInt(page);
     limit = parseInt(limit);
-
+ 
     if (isNaN(page) || page < 1) page = 1;
     if (isNaN(limit) || limit < 1) limit = 10;
     if (limit > 50) limit = 50;
-
-    // 2. Build query
+ 
     const query = {
       isActive: false,
     };
-
+ 
     if (city) {
-      query.city = city.trim();
+      query.city = { $regex: city.trim(), $options: "i" };
     }
-
-    // 3. Pagination
+ 
     const skip = (page - 1) * limit;
-
-    // 4. Fetch deleted theaters
+ 
     const theaters = await Theater.find(query)
       .skip(skip)
       .limit(limit)
       .sort({ updatedAt: -1 })
       .select("name city address amenities contactEmail contactPhone");
-
-    // 5. Count
+ 
     const totalTheaters = await Theater.countDocuments(query);
-
-    // 6. Pagination metadata
+ 
     const pagination = {
       totalTheaters,
       page,
@@ -259,18 +253,16 @@ theaterRouter.get("/theaters/deleted", adminAuth, async (req, res) => {
       hasNextPage: page < Math.ceil(totalTheaters / limit),
       hasPrevPage: page > 1,
     };
-
-    // 7. Response
+ 
     return res.status(200).json({
       success: true,
       message: "Deleted theaters fetched successfully",
       data: theaters,
       pagination,
     });
-
   } catch (err) {
     console.error("Get Deleted Theaters Error:", err);
-
+ 
     return res.status(500).json({
       success: false,
       message: err.message || "Server error during fetching deleted theaters",
@@ -339,36 +331,33 @@ theaterRouter.get('/theaters/:id', adminAuth, async (req, res) => {
  * GET /theaters
  * Public: list active theaters with optional ?city= and pagination
  */
-theaterRouter.get("/theaters", adminAuth ,async (req,res)=>{
-  try{
-    // 1. extract query params like city , page , limit
-    let {city, page =1, limit = 2} = req.query;
-
-    page= parseInt(page);
+theaterRouter.get("/theaters", adminAuth, async (req, res) => {
+  try {
+    let { city, page = 1, limit = 10 } = req.query;
+ 
+    page = parseInt(page);
     limit = parseInt(limit);
-
-    if(isNaN(page) || page < 1) page = 1;
-    if(isNaN(limit) || limit < 1) limit = 10;
-    if(limit > 50) limit = 50; // max limit capacity
-
-    // 2. build query object 
-    const query = {isActive: true};
-    if(city){
-      query.city = city.trim();
+ 
+    if (isNaN(page) || page < 1) page = 1;
+    if (isNaN(limit) || limit < 1) limit = 10;
+    if (limit > 50) limit = 50;
+ 
+    const query = { isActive: true };
+    if (city) {
+      query.city = { $regex: city.trim(), $options: "i" };
     }
-    // 3. calculate skip and limit for pagination
+ 
     const skip = (page - 1) * limit;
-    // 4. execute main query
+ 
     const theaters = await Theater.find(query)
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 })
       .select("name city address amenities");
-    // 5. get total count for pagination metadata
+ 
     const totalTheaters = await Theater.countDocuments(query);
-    // 6. get pagination information
     const totalPages = Math.ceil(totalTheaters / limit);
-
+ 
     const pagination = {
       totalTheaters,
       page,
@@ -377,14 +366,14 @@ theaterRouter.get("/theaters", adminAuth ,async (req,res)=>{
       hasNextPage: page < totalPages,
       hasPrevPage: page > 1,
     };
-    // 7. return response with theaters and pagination metadata
+ 
     return res.status(200).json({
       success: true,
       message: "Theaters fetched successfully",
       data: theaters,
       pagination,
     });
-  }catch(err){
+  } catch (err) {
     return res.status(500).json({
       success: false,
       message: err.message || "Server error during fetching theaters",
