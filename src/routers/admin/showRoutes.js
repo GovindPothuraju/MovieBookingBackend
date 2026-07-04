@@ -444,4 +444,81 @@ screenRouter.get("/screens", adminAuth, async (req, res) => {
   }
 });
 
+/**
+ * GET /screens
+ * Admin only: list active screens with optional ?theaterId=, ?search=,
+ * and pagination
+ */
+screenRouter.get("/screens", adminAuth, async (req, res) => {
+  try {
+    let { theaterId, search, page = 1, limit = 10 } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+
+    if (isNaN(page) || page < 1) page = 1;
+    if (isNaN(limit) || limit < 1) limit = 10;
+    if (limit > 50) limit = 50;
+
+    const query = { isActive: true };
+
+    if (theaterId) {
+      if (!mongoose.Types.ObjectId.isValid(theaterId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid theater ID",
+        });
+      }
+      query.theaterId = theaterId;
+    }
+
+    // Search by screen name OR parent theater name
+    if (search && search.trim()) {
+      const term = search.trim();
+
+      const matchingTheaters = await Theater.find({
+        name: { $regex: term, $options: "i" },
+      }).select("_id");
+
+      const theaterIds = matchingTheaters.map((t) => t._id);
+
+      query.$or = [
+        { name: { $regex: term, $options: "i" } },
+        { theaterId: { $in: theaterIds } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const screens = await Screen.find(query)
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .populate("theaterId", "name city");
+
+    const totalScreens = await Screen.countDocuments(query);
+    const totalPages = Math.ceil(totalScreens / limit);
+
+    res.status(200).json({
+      success: true,
+      message: "Screens fetched successfully",
+      data: screens,
+      pagination: {
+        totalScreens,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    });
+  } catch (err) {
+    console.error("Get screens error:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message || "Server error during fetching screens",
+    });
+  }
+});
+
 module.exports = screenRouter;
