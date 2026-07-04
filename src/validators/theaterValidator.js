@@ -3,7 +3,7 @@ const validator = require("validator");
 const AMENITIES = [
   "PARKING",
   "FOOD COURT",
-  "WHEELCHAIR ACCESSIBLE",
+  "WHEELCHAIR_ACCESSIBLE",
   "RECLINER SEATS",
   "DOLBY ATOMS",
   "IMAX",
