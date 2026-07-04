@@ -8,7 +8,7 @@ const upload = require('../../config/multer');
 const { validateCreateMovie , validateUpdateMovie} = require('../../validators/movieValidator');
 const adminAuth = require('../../middleware/adminAuth');
 const uploadToCloudinary = require('../../utils/cloudinaryUpload');
-
+const parseMovieFormData = require("../../middlewares/parseMovieFormData");
 
 /**
  * POST /movies
@@ -20,6 +20,7 @@ movieRouter.post('/movies',adminAuth,
     { name: "castImages", maxCount: 10 },
     { name: "crewImages", maxCount: 10 }
   ]),
+  parseMovieFormData,
   async (req, res) => {
     try {
 
@@ -166,6 +167,7 @@ movieRouter.patch("/movies/:movieId",adminAuth,
     { name: "castImages", maxCount: 10 },
     { name: "crewImages", maxCount: 10 },
   ]),
+  parseMovieFormData,
   async (req, res) => {
     try {
       // 1. Validate movieId
