@@ -347,5 +347,49 @@ seatRouter.delete("/screens/:screenId/layout", adminAuth, async (req, res) => {
   }
 );
 
+/**
+ * GET /screens/:id
+ * Admin only: Get screen details by ID
+ */
+seatRouter.get("/screens/:id", adminAuth, async (req, res) => {
+  try {
+    // 1. Validate screen ID
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid screen ID",
+      });
+    }
+
+    // 2. Find screen
+    const screen = await Screen.findById(id)
+      .populate("theaterId", "name city")
+      .lean();
+
+    if (!screen) {
+      return res.status(404).json({
+        success: false,
+        message: "Screen not found",
+      });
+    }
+
+    // 3. Return response
+    return res.status(200).json({
+      success: true,
+      message: "Screen details fetched successfully",
+      data: screen,
+    });
+
+  } catch (err) {
+    console.error("Get Screen Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to fetch screen details",
+    });
+  }
+});
 
 module.exports = seatRouter;

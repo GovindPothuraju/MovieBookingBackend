@@ -21,23 +21,6 @@ const validateCreateScreen = (req) => {
       return { error: "Screen name cannot exceed 50 characters" };
     }
 
-    // Rows
-    const parsedRows = Number(rows);
-    if (isNaN(parsedRows) || !Number.isInteger(parsedRows) || parsedRows < 1 || parsedRows > 26) {
-      return { error: "Rows must be an integer between 1 and 26" };
-    }
-
-    // Columns
-    const parsedColumns = Number(columns);
-    if (isNaN(parsedColumns) || !Number.isInteger(parsedColumns) || parsedColumns < 1) {
-      return { error: "Columns must be a positive integer" };
-    }
-
-    // Max seats constraint
-    if (parsedRows * parsedColumns > MAX_SEATS) {
-      return { error: `Total seats (rows × columns) cannot exceed ${MAX_SEATS}` };
-    }
-
     // Screen Type
     if (screenType !== undefined && screenType !== null) {
       if (!SCREEN_TYPES.includes(screenType)) {
