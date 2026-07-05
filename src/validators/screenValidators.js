@@ -1,12 +1,11 @@
 const validator = require("validator");
 
-const MAX_SEATS = 500;
-const SCREEN_TYPES = ['IMAX', '4DX','2D','3D'] // Consistent with schema
+const SCREEN_TYPES = ['IMAX', '4DX', '2D', '3D']; // Consistent with schema
 
 const validateCreateScreen = (req) => {
   try {
     const { theaterId } = req.params;
-    const { name, rows, columns, screenType } = req.body;
+    const { name, screenType } = req.body;
 
     // Theater ID
     if (!theaterId || !validator.isMongoId(theaterId)) {
@@ -21,11 +20,9 @@ const validateCreateScreen = (req) => {
       return { error: "Screen name cannot exceed 50 characters" };
     }
 
-    // Screen Type
-    if (screenType !== undefined && screenType !== null) {
-      if (!SCREEN_TYPES.includes(screenType)) {
-        return { error: `Invalid screen type. Allowed: ${SCREEN_TYPES.join(', ')}` };
-      }
+    // Screen Type — required, must be a valid enum value
+    if (!screenType || !SCREEN_TYPES.includes(screenType)) {
+      return { error: `Screen type is required. Allowed: ${SCREEN_TYPES.join(', ')}` };
     }
 
     return {
@@ -33,9 +30,7 @@ const validateCreateScreen = (req) => {
       value: {
         theaterId,
         name: name.trim(),
-        rows: parsedRows,
-        columns: parsedColumns,
-        screenType: screenType || 'STANDARD'
+        screenType
       }
     };
 
@@ -86,8 +81,7 @@ const validatePartialScreenUpdate = (req) => {
       error: null,
       value: {
         screenId,
-        ...(updateData.screenType !== undefined && { screenType: updateData.screenType }),
-        ...(updateData.isActive !== undefined && { isActive: updateData.isActive })
+        ...updateData
       }
     };
 
@@ -96,7 +90,7 @@ const validatePartialScreenUpdate = (req) => {
   }
 };
 
-module.exports = { 
-  validateCreateScreen, 
-  validatePartialScreenUpdate 
+module.exports = {
+  validateCreateScreen,
+  validatePartialScreenUpdate
 };

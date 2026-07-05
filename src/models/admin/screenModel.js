@@ -18,25 +18,28 @@ const screenSchema = new mongoose.Schema(
     },
     rows: {
       type: Number,
-      required: [true, 'Number of rows is required'],
       min: [1, 'Rows must be at least 1'],
       max: [26, 'Rows cannot exceed 26 (A–Z)'],
       validate: {
-        validator: Number.isInteger,
+        validator: function (val) {
+          return val == null || Number.isInteger(val);
+        },
         message: 'Rows must be an integer',
       },
     },
     columns: {
       type: Number,
-      required: [true, 'Number of columns is required'],
       min: [1, 'Columns must be at least 1'],
       validate: [
         {
-          validator: Number.isInteger,
+          validator: function (val) {
+            return val == null || Number.isInteger(val);
+          },
           message: 'Columns must be an integer',
         },
         {
           validator: function (cols) {
+            if (cols == null || this.rows == null) return true;
             return this.rows * cols <= MAX_SEATS;
           },
           message: `Total seats (rows × columns) cannot exceed ${MAX_SEATS}`,
@@ -45,11 +48,12 @@ const screenSchema = new mongoose.Schema(
     },
     totalSeats: {
       type: Number,
+      default: 0,
     },
     screenType: {
       type: String,
-      enum: ['IMAX', '4DX','2D','3D'],
-      default: 'STANDARD',
+      enum: ['IMAX', '4DX', '2D', '3D'],
+      required: [true, 'Screen type is required'],
     },
     isActive: {
       type: Boolean,
@@ -66,9 +70,8 @@ const screenSchema = new mongoose.Schema(
 screenSchema.index({ theaterId: 1, name: 1 }, { unique: true });
 screenSchema.index({ isActive: 1 });
 
-// Pre-save hook to calculate totalSeats
-screenSchema.pre('save', async function () {
-  // Calculate totalSeats whenever rows or columns are present
+// Pre-save hook to calculate totalSeats — only runs once rows/columns exist
+screenSchema.pre('save', function () {
   if (this.rows != null && this.columns != null) {
     this.totalSeats = this.rows * this.columns;
   }
