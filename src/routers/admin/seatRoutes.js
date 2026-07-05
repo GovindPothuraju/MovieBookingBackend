@@ -85,6 +85,7 @@ seatRouter.post("/screens/:screenId/layout", adminAuth, async (req, res) => {
 
     // 8 main important step - mark screen documnet with seat generated = true 
     screen.seatsGenerated = true;
+    screen.totalSeats = seats.length;
     await screen.save();
 
     // 9. return success response
