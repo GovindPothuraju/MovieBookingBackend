@@ -601,6 +601,86 @@ showRouter.get("/shows", adminAuth, async (req, res) => {
   }
 });
 
+/**
+ * PATCH /shows/:id/status
+ * Admin only: Cancel a show
+ */
+showRouter.patch("/shows/:id/status", adminAuth, async (req, res) => {
+  try {
+    // 1. Validate show ID
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid show ID",
+      });
+    }
+
+    // 2. Fetch show
+    const show = await Show.findById(id);
+
+    if (!show) {
+      return res.status(404).json({
+        success: false,
+        message: "Show not found",
+      });
+    }
+
+    // 3. Already cancelled
+    if (show.status === "cancelled") {
+      return res.status(409).json({
+        success: false,
+        message: "Show is already cancelled",
+      });
+    }
+
+    // 4. Prevent cancelling completed/started shows
+    if (show.showTime <= new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot cancel a show that has already started",
+      });
+    }
+
+    // 5. Validate request body
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: "Status is required",
+      });
+    }
+
+    if (status.toLowerCase() !== "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Only 'cancelled' status is allowed",
+      });
+    }
+
+    // 6. Update status
+    show.status = "cancelled";
+    await show.save();
+
+    // 7. Response
+    return res.status(200).json({
+      success: true,
+      message: "Show cancelled successfully",
+      data: show,
+    });
+
+  } catch (err) {
+    console.error("Cancel show error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to cancel show",
+    });
+  }
+});
+
 
 
 module.exports = showRouter;
