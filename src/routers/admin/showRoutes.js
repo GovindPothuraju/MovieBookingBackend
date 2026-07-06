@@ -1,243 +1,474 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const adminAuth = require("../../middleware/adminAuth");
+const showRouter = express.Router();
 
-const screenRouter = express.Router();
 
-const { validateCreateScreen, validatePartialScreenUpdate } = require("../../validators/screenValidators");
+const Movie = require('../../models/admin/movieModel');
+const Show = require('../../models/admin/showModel');
+const Seat = require("../../models/admin/seatSchema");
 const Theater = require("../../models/admin/theaterModel");
 const Screen = require("../../models/admin/screenModel");
 
-// -------------------- Screen Management ------------------ //
+const adminAuth = require("../../middleware/adminAuth");
+const { validateShowInput,validateShowUpdateInput } = require('../../validators/showValidator');
+
 
 /**
- * POST /theaters/:theaterId/screens
- * Admin only: create a new screen under a theater
+ * POST /shows
+ * Admin only: create a new show
  */
-screenRouter.post('/theaters/:theaterId/screens', adminAuth, async (req, res) => {
+showRouter.post("/shows", adminAuth, async (req, res) => {
   try {
-    // 1. Validate request (theaterId param + body)
-    const result = validateCreateScreen(req);
-    if (result.error) {
+    // 1. Validate input
+    const { value, error } = validateShowInput(req);
+
+    if (error) {
       return res.status(400).json({
         success: false,
-        message: result.error
+        message: error,
       });
     }
-    const { theaterId, name } = result.value;
 
-    // 2. Check theater exists and active
-    const theater = await Theater.findById(theaterId);
+    // 2. Validate movie
+    const movie = await Movie.findById(value.movieId);
+
+    if (!movie) {
+      return res.status(404).json({
+        success: false,
+        message: "Movie not found",
+      });
+    }
+
+    if (!movie.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Movie is inactive",
+      });
+    }
+
+    if (movie.status === "ARCHIVED") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot create show for archived movie",
+      });
+    }
+
+    if (new Date(value.showTime) < new Date(movie.releaseDate)) {
+      return res.status(400).json({
+        success: false,
+        message: "Show cannot be scheduled before movie release date",
+      });
+    }
+
+    // 3. Validate theater
+    const theater = await Theater.findById(value.theaterId);
+
     if (!theater) {
       return res.status(404).json({
         success: false,
-        message: "Theater not found"
+        message: "Theater not found",
       });
     }
+
     if (!theater.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: "Theater is inactive"
-      });
-    }
-
-    // 3. Check for duplicate screen name in this theater (active screens only)
-    const existingScreen = await Screen.findOne({
-      theaterId,
-      name,
-      isActive: true
-    });
-    if (existingScreen) {
-      return res.status(409).json({
-        success: false,
-        message: `Screen "${name}" already exists in this theater`
-      });
-    }
-
-    // 4. Create screen
-    const newScreen = new Screen(result.value);
-    await newScreen.save();
-
-    res.status(201).json({
-      success: true,
-      message: "Screen created successfully",
-      data: newScreen
-    });
-
-  } catch (err) {
-    console.error("Create screen error:", err);
-    res.status(500).json({
-      success: false,
-      message: err.message || "Server error during screen creation"
-    });
-  }
-});
-
-/**
- * PATCH /screens/:screenId
- * Admin only: partially update screen (e.g., status, type)
- */
-screenRouter.patch("/screens/:screenId", adminAuth, async (req, res) => {
-  try {
-    // 1. Validate screenId param
-    const { screenId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(screenId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid screen ID"
+        message: "Theater is inactive",
       });
     }
 
-    // 2. Validate partial update data
-    const result = validatePartialScreenUpdate(req);
-    if (result.error) {
-      return res.status(422).json({
-        success: false,
-        message: result.error.details || result.error
-      });
-    }
-
-    const { screenType, isActive } = result.value;
-
-    // 3. Find existing screen with theater details
-    const screen = await Screen.findById(screenId)
-      .populate('theaterId', 'name isActive')
-      .lean();
+    // 4. Validate screen
+    const screen = await Screen.findOne({
+      _id: value.screenId,
+      theaterId: value.theaterId,
+    });
 
     if (!screen) {
       return res.status(404).json({
         success: false,
-        message: "Screen not found"
+        message: "Screen not found in this theater",
       });
     }
 
-    // 4. Verify associated theater exists and is active
-    if (!screen.theaterId || !screen.theaterId.isActive) {
-      return res.status(409).json({
+    if (!screen.isActive) {
+      return res.status(400).json({
         success: false,
-        message: "Cannot update screen: associated theater not found or inactive"
+        message: "Screen is inactive",
       });
     }
 
-    // 5. Prepare atomic update fields (only provided ones)
-    const updateFields = { $set: {} };
-    if (screenType !== undefined) updateFields.$set.screenType = screenType;
-    if (isActive !== undefined) updateFields.$set.isActive = isActive;
+    if (!screen.seatsGenerated) {
+      return res.status(400).json({
+        success: false,
+        message: "Seat layout is not generated for this screen",
+      });
+    }
 
-    // 6. Perform safe update
-    const updatedScreen = await Screen.findByIdAndUpdate(
-      screenId,
-      updateFields,
-      {
-        new: true,
-        runValidators: true,
-        context: 'query'
+    // 5. Prevent past shows
+    const newShowStart = new Date(value.showTime);
+
+    if (newShowStart <= new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot create show in the past",
+      });
+    }
+
+    // 6. Check overlapping shows
+    const BUFFER_TIME = 30;
+
+    const newShowEnd = new Date(
+      newShowStart.getTime() +
+      (movie.duration + BUFFER_TIME) * 60 * 1000
+    );
+
+    const existingShows = await Show.find({
+      screenId: value.screenId,
+      status: "scheduled",
+    }).populate("movieId", "duration");
+
+    for (const existingShow of existingShows) {
+
+      if (!existingShow.movieId) continue;
+
+      const existingStart = new Date(existingShow.showTime);
+
+      const existingEnd = new Date(
+        existingStart.getTime() +
+        (existingShow.movieId.duration + BUFFER_TIME) * 60 * 1000
+      );
+
+      const isOverlap =
+        newShowStart < existingEnd &&
+        newShowEnd > existingStart;
+
+      if (isOverlap) {
+        return res.status(409).json({
+          success: false,
+          message: `Screen is already occupied between ${existingStart.toLocaleString()} and ${existingEnd.toLocaleString()}`,
+        });
       }
-    ).populate('theaterId', 'name isActive');
+    }
 
-    if (!updatedScreen) {
-      return res.status(404).json({
+    // 7. Get seat count per category
+    const seatCounts = await Seat.aggregate([
+      {
+        $match: {
+          screenId: new mongoose.Types.ObjectId(value.screenId),
+          isActive: true,
+        },
+      },
+      {
+        $group: {
+          _id: "$category",
+          totalSeats: {
+            $sum: 1,
+          },
+        },
+      },
+    ]);
+
+    if (seatCounts.length === 0) {
+      return res.status(400).json({
         success: false,
-        message: "Screen not found during update"
+        message: "No seats found for this screen",
       });
     }
 
-    // 7. Final consistency check (theater still active post-update)
-    if (!updatedScreen.theaterId?.isActive) {
-      return res.status(409).json({
-        success: false,
-        message: "Update failed: associated theater became inactive"
-      });
+    // 8. Convert to map
+    const seatCountMap = {};
+
+    seatCounts.forEach((seat) => {
+      seatCountMap[seat._id] = seat.totalSeats;
+    });
+
+    // 9. Validate price map
+
+    for (const category in seatCountMap) {
+
+      if (!(category in value.priceMap)) {
+        return res.status(400).json({
+          success: false,
+          message: `Price missing for category ${category}`,
+        });
+      }
+
+      const price = Number(value.priceMap[category]);
+
+      if (isNaN(price) || price <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid price for category ${category}`,
+        });
+      }
     }
 
-    res.status(200).json({
+    for (const category in value.priceMap) {
+
+      if (!(category in seatCountMap)) {
+        return res.status(400).json({
+          success: false,
+          message: `Category ${category} does not exist in this screen`,
+        });
+      }
+    }
+
+    // 10. Build price map
+    const priceMap = {};
+
+    for (const category in seatCountMap) {
+
+      priceMap[category] = {
+        price: Number(value.priceMap[category]),
+        totalSeats: seatCountMap[category],
+        availableSeats: seatCountMap[category],
+      };
+
+    }
+
+    // 11. Create show
+    const newShow = await Show.create({
+      ...value,
+      priceMap,
+    });
+
+    // 12. Response
+    return res.status(201).json({
       success: true,
-      message: "Screen updated successfully",
-      data: updatedScreen
+      message: "Show created successfully",
+      data: newShow,
     });
 
   } catch (err) {
-    console.error("Update screen error:", err);
+    console.error("Create show error:", err);
 
-    // Handle specific Mongo errors
-    if (err.name === 'ValidationError') {
-      return res.status(422).json({
-        success: false,
-        message: Object.values(err.errors)[0].message
-      });
-    }
-    if (err.code === 11000) {
-      return res.status(409).json({
-        success: false,
-        message: "Update violates unique constraint"
-      });
-    }
-
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: err.message || "Server error during screen update"
+      message: err.message || "Failed to create show",
     });
   }
 });
 
+
 /**
- * DELETE /screens/:id
- * Admin only: delete a screen (soft delete)
+ * GET /shows/:id
+ * Admin only: get show details by ID
  */
-screenRouter.delete("/screens/:id", adminAuth, async (req, res) => {
+showRouter.get("/shows/:id", adminAuth, async (req, res) => {
   try {
-    // 1. Validate screenId param
+    // 1. Validate show ID
     const { id } = req.params;
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid screen ID"
+        message: "Invalid show ID",
       });
     }
 
-    // 2. Check if screen exists in database
-    const screen = await Screen.findById(id);
-    if (!screen) {
+    // 2. Fetch show with related details
+    const show = await Show.findById(id)
+      .populate("movieId", "title duration posterUrl releaseDate status")
+      .populate("theaterId", "name city")
+      .populate("screenId", "name screenType totalSeats");
+
+    // 3. Show not found
+    if (!show) {
       return res.status(404).json({
         success: false,
-        message: "Screen not found"
+        message: "Show not found",
       });
     }
 
-    // 3. Check if screen is already inactive
-    if (!screen.isActive) {
-      return res.status(409).json({
-        success: false,
-        message: "Screen is already inactive/deleted"
-      });
-    }
+    // 4. Compute current status
+    const computedStatus = getShowStatus(show);
 
-    // 4. Perform soft delete by setting isActive to false
-    screen.isActive = false;
-
-    // 5. Return success response
-    await screen.save();
-    res.status(200).json({
+    // 5. Response
+    return res.status(200).json({
       success: true,
-      message: "Screen deleted successfully"
+      message: "Show details fetched successfully",
+      data: show,
     });
+
   } catch (err) {
+    console.error("Get show error:", err);
+
     return res.status(500).json({
       success: false,
-      message: err.message || "Server error during screen deletion"
+      message: err.message || "Failed to get show",
+    });
+  }
+});
+
+
+/**
+ * PATCH /shows/:id
+ * Admin only: update show priceMap or status
+ */
+showRouter.patch("/shows/:id", adminAuth, async (req, res) => {
+  try {
+    // 1. Validate show ID
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid show ID",
+      });
+    }
+
+    // 2. Fetch show
+    const show = await Show.findById(id);
+
+    if (!show) {
+      return res.status(404).json({
+        success: false,
+        message: "Show not found",
+      });
+    }
+
+    // 3. Prevent updating completed/started shows
+    if (show.showTime <= new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot update show after it has started",
+      });
+    }
+
+    // 4. Validate request body
+    const { value, error } = validateShowUpdateInput(req);
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error,
+      });
+    }
+
+    // 5. Update Price Map
+    if (value.priceMap) {
+
+      const seatCounts = await Seat.aggregate([
+        {
+          $match: {
+            screenId: new mongoose.Types.ObjectId(show.screenId),
+            isActive: true,
+          },
+        },
+        {
+          $group: {
+            _id: "$category",
+            totalSeats: {
+              $sum: 1,
+            },
+          },
+        },
+      ]);
+
+      if (seatCounts.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No seats found for this screen",
+        });
+      }
+
+      const seatCountMap = {};
+
+      seatCounts.forEach((seat) => {
+        seatCountMap[seat._id] = seat.totalSeats;
+      });
+
+      // Validate all seat categories have prices
+      for (const category in seatCountMap) {
+
+        if (!(category in value.priceMap)) {
+          return res.status(400).json({
+            success: false,
+            message: `Price missing for category ${category}`,
+          });
+        }
+
+        const price = Number(value.priceMap[category]);
+
+        if (isNaN(price) || price <= 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid price for category ${category}`,
+          });
+        }
+      }
+
+      // Reject extra categories
+      for (const category in value.priceMap) {
+
+        if (!(category in seatCountMap)) {
+          return res.status(400).json({
+            success: false,
+            message: `Category ${category} does not exist in this screen`,
+          });
+        }
+      }
+
+      const newPriceMap = {};
+
+      for (const category in seatCountMap) {
+
+        newPriceMap[category] = {
+          price: Number(value.priceMap[category]),
+          totalSeats: seatCountMap[category],
+
+          // Preserve current availability
+          availableSeats:
+            show.priceMap?.[category]?.availableSeats ??
+            seatCountMap[category],
+        };
+
+      }
+
+      show.priceMap = newPriceMap;
+    }
+
+    // 6. Update status
+    if (value.status) {
+      show.status = value.status;
+    }
+
+    // 7. Save
+    await show.save();
+
+    // 8. Response
+    return res.status(200).json({
+      success: true,
+      message: "Show updated successfully",
+      data: show,
+    });
+
+  } catch (err) {
+    console.error("Update show error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to update show",
     });
   }
 });
 
 /**
- * GET /screens/deleted
- * Admin only: list deleted (inactive) screens
- * NOTE: must be registered BEFORE /screens/:id
+ * GET /shows
+ * Admin only: List shows with filters & pagination
  */
-screenRouter.get("/screens/deleted", adminAuth, async (req, res) => {
+showRouter.get("/shows", adminAuth, async (req, res) => {
   try {
-    // 1. Extract query params
-    let { theaterId, page = 1, limit = 10 } = req.query;
+    // 1. Parse query params
+    let {
+      page = 1,
+      limit = 10,
+      movieId,
+      theaterId,
+      screenId,
+      date,
+      status,
+    } = req.query;
 
     page = parseInt(page);
     limit = parseInt(limit);
@@ -246,8 +477,19 @@ screenRouter.get("/screens/deleted", adminAuth, async (req, res) => {
     if (isNaN(limit) || limit < 1) limit = 10;
     if (limit > 50) limit = 50;
 
-    // 2. Build query
-    const query = { isActive: false };
+    // 2. Build filter
+    const filter = {};
+
+    if (movieId) {
+      if (!mongoose.Types.ObjectId.isValid(movieId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid movie ID",
+        });
+      }
+
+      filter.movieId = movieId;
+    }
 
     if (theaterId) {
       if (!mongoose.Types.ObjectId.isValid(theaterId)) {
@@ -256,210 +498,109 @@ screenRouter.get("/screens/deleted", adminAuth, async (req, res) => {
           message: "Invalid theater ID",
         });
       }
-      query.theaterId = theaterId;
+
+      filter.theaterId = theaterId;
+    }
+
+    if (screenId) {
+      if (!mongoose.Types.ObjectId.isValid(screenId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid screen ID",
+        });
+      }
+
+      filter.screenId = screenId;
+    }
+
+    if (date) {
+      const startDate = new Date(date);
+
+      if (isNaN(startDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid date",
+        });
+      }
+
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 1);
+
+      filter.showTime = {
+        $gte: startDate,
+        $lt: endDate,
+      };
+    }
+
+    if (status) {
+      const allowedStatus = [
+        "scheduled",
+        "cancelled",
+        "completed",
+      ];
+
+      if (!allowedStatus.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid status",
+        });
+      }
+
+      filter.status = status;
     }
 
     // 3. Pagination
     const skip = (page - 1) * limit;
 
-    // 4. Fetch deleted screens
-    const screens = await Screen.find(query)
+    // 4. Fetch shows
+    const shows = await Show.find(filter)
+      .populate(
+        "movieId",
+        "title duration posterUrl releaseDate"
+      )
+      .populate(
+        "theaterId",
+        "name city"
+      )
+      .populate(
+        "screenId",
+        "name screenType totalSeats"
+      )
+      .sort({ showTime: 1 })
       .skip(skip)
       .limit(limit)
-      .sort({ updatedAt: -1 })
-      .populate("theaterId", "name city");
+      .select("-__v");
 
-    // 5. Count
-    const totalScreens = await Screen.countDocuments(query);
+    const updatedShows = shows;
 
-    // 6. Pagination metadata
-    const totalPages = Math.ceil(totalScreens / limit);
+    // 6. Count
+    const totalShows = await Show.countDocuments(filter);
 
     // 7. Response
-    res.status(200).json({
-      success: true,
-      message: "Deleted screens fetched successfully",
-      data: screens,
-      pagination: {
-        totalScreens,
-        page,
-        limit,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-      },
-    });
-  } catch (err) {
-    console.error("Get deleted screens error:", err);
-    res.status(500).json({
-      success: false,
-      message: err.message || "Server error during fetching deleted screens",
-    });
-  }
-});
-
-/**
- * GET /screens/:id
- * Admin only: get screen by ID
- * NOTE: must be registered AFTER /screens/deleted
- */
-screenRouter.get("/screens/:id", adminAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid screen ID",
-      });
-    }
-
-    const screen = await Screen.findById(id).populate("theaterId", "name city");
-
-    if (!screen) {
-      return res.status(404).json({
-        success: false,
-        message: "Screen not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Screen details retrieved successfully",
-      data: screen,
-    });
-  } catch (err) {
-    console.error("Get screen error:", err);
-    res.status(500).json({
-      success: false,
-      message: err.message || "Server error during fetching screen details",
-    });
-  }
-});
-
-/**
- * GET /theaters/:theaterId/screens
- * Admin Authenticated: list screens for a theater
- */
-screenRouter.get('/theaters/:theaterId/screens', adminAuth, async (req, res) => {
-  try {
-    // 1. validate theater id
-    const { theaterId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(theaterId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid theater ID"
-      });
-    }
-    // 2. check theater exists and active
-    const theater = await Theater.findById(theaterId);
-    if (!theater) {
-      return res.status(404).json({
-        success: false,
-        message: "Theater not found"
-      });
-    }
-    if (!theater.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: "Theater is inactive"
-      });
-    }
-    // 3. find all screens for that theater
-    const screens = await Screen.find({
-      theaterId,
-      isActive: true,
-    }).select("name totalSeats screenType");
-    // 4. return all theater screens with names
     return res.status(200).json({
       success: true,
-      message: `Screens for theater "${theater.name}" retrieved successfully`,
-      data: screens
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message || "Server error during fetching screens"
-    });
-  }
-});
-
-
-/**
- * GET /screens
- * Admin only: list active screens with optional ?theaterId=, ?search=,
- * and pagination
- */
-screenRouter.get("/screens", adminAuth, async (req, res) => {
-  try {
-    let { theaterId, search, page = 1, limit = 10 } = req.query;
-
-    page = parseInt(page);
-    limit = parseInt(limit);
-
-    if (isNaN(page) || page < 1) page = 1;
-    if (isNaN(limit) || limit < 1) limit = 10;
-    if (limit > 50) limit = 50;
-
-    const query = { isActive: true };
-
-    if (theaterId) {
-      if (!mongoose.Types.ObjectId.isValid(theaterId)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid theater ID",
-        });
-      }
-      query.theaterId = theaterId;
-    }
-
-    // Search by screen name OR parent theater name
-    if (search && search.trim()) {
-      const term = search.trim();
-
-      const matchingTheaters = await Theater.find({
-        name: { $regex: term, $options: "i" },
-      }).select("_id");
-
-      const theaterIds = matchingTheaters.map((t) => t._id);
-
-      query.$or = [
-        { name: { $regex: term, $options: "i" } },
-        { theaterId: { $in: theaterIds } },
-      ];
-    }
-
-    const skip = (page - 1) * limit;
-
-    const screens = await Screen.find(query)
-      .skip(skip)
-      .limit(limit)
-      .sort({ createdAt: -1 })
-      .populate("theaterId", "name city");
-
-    const totalScreens = await Screen.countDocuments(query);
-    const totalPages = Math.ceil(totalScreens / limit);
-
-    res.status(200).json({
-      success: true,
-      message: "Screens fetched successfully",
-      data: screens,
+      message: "Shows retrieved successfully",
+      data: updatedShows,
       pagination: {
-        totalScreens,
-        page,
+        totalShows,
+        currentPage: page,
+        totalPages: Math.ceil(totalShows / limit),
         limit,
-        totalPages,
-        hasNextPage: page < totalPages,
+        hasNextPage: page * limit < totalShows,
         hasPrevPage: page > 1,
       },
     });
+
   } catch (err) {
-    console.error("Get screens error:", err);
-    res.status(500).json({
+    console.error("Get shows error:", err);
+
+    return res.status(500).json({
       success: false,
-      message: err.message || "Server error during fetching screens",
+      message: err.message || "Failed to get shows",
     });
   }
 });
 
-module.exports = screenRouter;
+
+
+module.exports = showRouter;
