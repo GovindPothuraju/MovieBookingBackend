@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const ALLOWED_CATEGORIES = ["REGULAR", "VIP", "PREMIUM", "RECLINER"];
-const ALLOWED_STATUS = ["scheduled", "cancelled", "completed"];
+const ALLOWED_STATUS = ["SCHEDULED", "CANCELLED", "COMPLETED"];
 
 const validateShowInput = (req) => {
   try {
