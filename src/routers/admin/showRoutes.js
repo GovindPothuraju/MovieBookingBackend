@@ -12,6 +12,17 @@ const Screen = require("../../models/admin/screenModel");
 const adminAuth = require("../../middleware/adminAuth");
 const { validateShowInput,validateShowUpdateInput } = require('../../validators/showValidator');
 
+// dynamic show status (if show is ended, mark as completed; if cancelled, mark as cancelled; else scheduled)
+const getShowStatus = (show) => {
+  const now = new Date();
+  const showEndTime = new Date(show.showTime.getTime() + 3 * 60 * 60 * 1000);
+
+  if (now >= showEndTime) return "completed";
+  if (show.status === "cancelled") return "cancelled";
+
+  return "scheduled";
+};
+
 
 /**
  * POST /shows
