@@ -17,10 +17,10 @@ const getShowStatus = (show) => {
   const now = new Date();
   const showEndTime = new Date(show.showTime.getTime() + 3 * 60 * 60 * 1000);
 
-  if (now >= showEndTime) return "completed";
-  if (show.status === "cancelled") return "cancelled";
+  if (now >= showEndTime) return "COMPLETED";
+  if (show.status === "cancelled") return "CANCELLED";
 
-  return "scheduled";
+  return "SCHEDULED";
 };
 
 
@@ -639,7 +639,7 @@ showRouter.patch("/shows/:id/status", adminAuth, async (req, res) => {
     }
 
     // 3. Already cancelled
-    if (show.status === "cancelled") {
+    if (show.status === "CANCELLED") {
       return res.status(409).json({
         success: false,
         message: "Show is already cancelled",
@@ -664,7 +664,7 @@ showRouter.patch("/shows/:id/status", adminAuth, async (req, res) => {
       });
     }
 
-    if (status.toLowerCase() !== "cancelled") {
+    if (status!== "CANCELLED") {
       return res.status(400).json({
         success: false,
         message: "Only 'cancelled' status is allowed",
@@ -672,7 +672,7 @@ showRouter.patch("/shows/:id/status", adminAuth, async (req, res) => {
     }
 
     // 6. Update status
-    show.status = "cancelled";
+    show.status = "CANCELLED";
     await show.save();
 
     // 7. Response
