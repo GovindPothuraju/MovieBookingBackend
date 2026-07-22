@@ -15,12 +15,20 @@ const { validateShowInput,validateShowUpdateInput } = require('../../validators/
 // dynamic show status (if show is ended, mark as completed; if cancelled, mark as cancelled; else scheduled)
 const getShowStatus = (show) => {
   const now = new Date();
-  const showEndTime = new Date(show.showTime.getTime() + 3 * 60 * 60 * 1000);
 
-  if (now >= showEndTime) return "COMPLETED";
-  if (show.status === "CANCELLED") return "CANCELLED";
+  if (show.status === "CANCELLED") {
+      return "CANCELLED";
+  }
 
-  return "SCHEDULED";
+  if (now < show.showTime) {
+      return "SCHEDULED";
+  }
+
+  if (now >= show.showTime && now < showEndTime) {
+      return "RUNNING";
+  }
+
+  return "COMPLETED";
 };
 
 
