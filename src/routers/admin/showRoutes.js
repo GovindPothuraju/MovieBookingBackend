@@ -448,10 +448,13 @@ showRouter.patch("/shows/:id", adminAuth, async (req, res) => {
     await show.save();
 
     // 8. Response
+    const showObj = show.toObject();
+    showObj.status = getShowStatus(show);
+
     return res.status(200).json({
       success: true,
-      message: "Show updated successfully",
-      data: show,
+      message: "Show details fetched successfully",
+      data: showObj,
     });
 
   } catch (err) {
@@ -544,11 +547,7 @@ showRouter.get("/shows", adminAuth, async (req, res) => {
     }
 
     if (status) {
-      const allowedStatus = [
-        "scheduled",
-        "cancelled",
-        "completed",
-      ];
+      const allowedStatus = ["SCHEDULED", "CANCELLED", "COMPLETED"];
 
       if (!allowedStatus.includes(status)) {
         return res.status(400).json({
@@ -582,7 +581,11 @@ showRouter.get("/shows", adminAuth, async (req, res) => {
       .limit(limit)
       .select("-__v");
 
-    const updatedShows = shows;
+    const updatedShows =  shows.map((show) => {
+        const showObj = show.toObject();
+        showObj.status = getShowStatus(show);
+        return showObj;
+      });
 
     // 6. Count
     const totalShows = await Show.countDocuments(filter);
