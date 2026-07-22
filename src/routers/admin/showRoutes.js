@@ -18,7 +18,7 @@ const getShowStatus = (show) => {
   const showEndTime = new Date(show.showTime.getTime() + 3 * 60 * 60 * 1000);
 
   if (now >= showEndTime) return "COMPLETED";
-  if (show.status === "cancelled") return "CANCELLED";
+  if (show.status === "CANCELLED") return "CANCELLED";
 
   return "SCHEDULED";
 };
@@ -135,7 +135,7 @@ showRouter.post("/shows", adminAuth, async (req, res) => {
 
     const existingShows = await Show.find({
       screenId: value.screenId,
-      status: "scheduled",
+      status: "SCHEDULED",
     }).populate("movieId", "duration");
 
     for (const existingShow of existingShows) {
