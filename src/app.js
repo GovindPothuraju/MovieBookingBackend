@@ -24,6 +24,9 @@ const userRoutes = require("./routers/users/userRoutes");
 const userMovieRoutes = require("./routers/users/movieRoutes");
 const userShowRoutes = require("./routers/users/showRoutes");
 
+// Redis Import from config-redis
+const  redisClient  = require("./config/redis");
+
 // Middleware
 app.use(
   cors({
@@ -34,6 +37,8 @@ app.use(
 
 app.use(express.json());
 app.use(cookieParser());
+
+
 
 // Admin routes
 app.use("/", adminRoutes);
@@ -57,16 +62,42 @@ app.get("/healthz", (req, res) => {
   });
 });
 
-connectDB()
-  .then(() => {
-    console.log("Database connected successfully");
+// Redis api testing
+app.get("/redis-test", async (req, res) => {
+  await redisClient.set("name", "Sai");
+
+  const value = await redisClient.get("name");
+
+  res.json({
+    value,
+  });
+});
+
+
+// Redis server start
+// Connect MongoDB
+//         ↓
+// Connect Redis
+//         ↓
+// Start Express Server
+const startServer = async () => {
+  try {
+    await connectDB();
+    console.log("Database Connected");
+
+    await redisClient.connect();
+    console.log(" Redis Connected");
 
     const port = process.env.PORT || 5000;
 
     app.listen(port, () => {
-      console.log(`Server is running on port ${port}`);
+      console.log(`Server running on port ${port}`);
     });
-  })
-  .catch((err) => {
-    console.log("Database connection failed", err);
-  });
+
+  } catch (err) {
+    console.error("Server startup failed:", err);
+    process.exit(1);
+  }
+};
+
+startServer();

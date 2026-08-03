@@ -4,11 +4,14 @@ const movieRouter = express.Router();
 const mongoose = require('mongoose');
 const Movie = require('../../models/admin/movieModel');
 const upload = require('../../config/multer');
+const redisClient = require("../../config/redis");
+
 
 const { validateCreateMovie , validateUpdateMovie} = require('../../validators/movieValidator');
 const adminAuth = require('../../middleware/adminAuth');
 const uploadToCloudinary = require('../../utils/cloudinaryUpload');
 const parseMovieFormData = require("../../middleware/parseMovieFormData");
+const { RedisClient } = require('redis');
 
 /**
  * POST /movies
@@ -547,6 +550,16 @@ movieRouter.get("/movies",adminAuth,async (req, res) => {
       if (search) {
         query.title = { $regex: search, $options: "i" };
       }
+      // store response in redis 
+      const cacheKey = `movies:${JSON.stringify(req.query)}`;
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        return res.status(200).json({
+          success: true,
+          source: "Redis Cache",
+          ...JSON.parse(cachedData),
+        });
+      }
 
       // 3 calculate skip
       const skip = (page - 1) * limit;
@@ -572,7 +585,8 @@ movieRouter.get("/movies",adminAuth,async (req, res) => {
         hasNextPage: page < totalPages,
         hasPrevPage: page > 1,
       };
-
+      // store in redis
+      await redisClient.set(cacheKey , JSON.stringify(response) , {EX:600});
       // 7 response
       return res.status(200).json({
         success: true,
