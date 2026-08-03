@@ -527,82 +527,90 @@ movieRouter.get('/movies/:movieId', adminAuth, async (req, res) => {
  * GET /movies
  * Admin only: get all movies
  */
-movieRouter.get("/movies",adminAuth,async (req, res) => {
-    try {
-      // 1 validate and parse query params (page, limit)
-      let { page = 1, limit = 3 } = req.query;
+movieRouter.get("/movies", adminAuth, async (req, res) => {
+  try {
+    // 1 validate and parse query params (page, limit)
+    let { page = 1, limit = 3 } = req.query;
 
-      page = parseInt(page);
-      limit = parseInt(limit);
+    page = parseInt(page);
+    limit = parseInt(limit);
 
-      if (isNaN(page) || page < 1) page = 1;
-      if (isNaN(limit) || limit < 1 || limit > 50) limit = 3;
+    if (isNaN(page) || page < 1) page = 1;
+    if (isNaN(limit) || limit < 1 || limit > 50) limit = 3;
 
-      // 2 build filter object
-      const query = {};
-      const { status, language, genre, search } = req.query;
+    // 2 build filter object
+    const query = {};
+    const { status, language, genre, search } = req.query;
 
-      if (status) query.status = status;
-      if (language) query.language = language;
-      if (genre) query.genre = genre;
+    if (status) query.status = status;
+    if (language) query.language = language;
+    if (genre) query.genre = genre;
 
-      // search (case-insensitive)
-      if (search) {
-        query.title = { $regex: search, $options: "i" };
-      }
-      // store response in redis 
-      const cacheKey = `movies:${JSON.stringify(req.query)}`;
-      const cachedData = await redisClient.get(cacheKey);
-      if (cachedData) {
-        return res.status(200).json({
-          success: true,
-          source: "Redis Cache",
-          ...JSON.parse(cachedData),
-        });
-      }
+    if (search) {
+      query.title = { $regex: search, $options: "i" };
+    }
 
-      // 3 calculate skip
-      const skip = (page - 1) * limit;
+    // Redis Cache Key
+    const cacheKey = `movies:${JSON.stringify(req.query)}`;
 
-      // 4 fetch movies
-      const movies = await Movie.find(query)
-        .skip(skip)
-        .limit(limit)
-        .sort({ releaseDate: -1 })
-        .select("title releaseDate language genre status");
+    // Check Redis
+    const cachedData = await redisClient.get(cacheKey);
 
-      // 5 count total
-      const total = await Movie.countDocuments(query);
-
-      // 6 pagination info
-      const totalPages = Math.ceil(total / limit);
-
-      const pagination = {
-        totalMovies: total,
-        currentPage: page,
-        totalPages,
-        limit,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-      };
-      // store in redis
-      await redisClient.set(cacheKey , JSON.stringify(response) , {EX:600});
-      // 7 response
+    if (cachedData) {
       return res.status(200).json({
-        success: true,
-        message: "Movies fetched successfully",
-        data: movies,
-        pagination,
-      });
-
-    } catch (err) {
-      return res.status(500).json({
-        success: false,
-        message: err.message || "Failed to get movies",
+        source: "Redis Cache",
+        ...JSON.parse(cachedData),
       });
     }
+
+    // 3 calculate skip
+    const skip = (page - 1) * limit;
+
+    // 4 fetch movies
+    const movies = await Movie.find(query)
+      .skip(skip)
+      .limit(limit)
+      .sort({ releaseDate: -1 })
+      .select("title releaseDate language genre status");
+
+    // 5 count total
+    const total = await Movie.countDocuments(query);
+
+    // 6 pagination info
+    const totalPages = Math.ceil(total / limit);
+
+    const pagination = {
+      totalMovies: total,
+      currentPage: page,
+      totalPages,
+      limit,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    };
+
+    // Response object
+    const response = {
+      success: true,
+      message: "Movies fetched successfully",
+      data: movies,
+      pagination,
+    };
+
+    // Store in Redis (10 minutes)
+    await redisClient.set(cacheKey, JSON.stringify(response), {
+      EX: 600,
+    });
+
+    // Return response
+    return res.status(200).json(response);
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to get movies",
+    });
   }
-);
+});
 
 module.exports = movieRouter;
 
