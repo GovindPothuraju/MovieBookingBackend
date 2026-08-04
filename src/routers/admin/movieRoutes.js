@@ -11,7 +11,7 @@ const { validateCreateMovie , validateUpdateMovie} = require('../../validators/m
 const adminAuth = require('../../middleware/adminAuth');
 const uploadToCloudinary = require('../../utils/cloudinaryUpload');
 const parseMovieFormData = require("../../middleware/parseMovieFormData");
-const { RedisClient } = require('redis');
+
 
 /**
  * POST /movies
@@ -529,16 +529,16 @@ movieRouter.get('/movies/:movieId', adminAuth, async (req, res) => {
  */
 movieRouter.get("/movies", adminAuth, async (req, res) => {
   try {
-    // 1 validate and parse query params (page, limit)
+    // 1. Validate and parse pagination
     let { page = 1, limit = 3 } = req.query;
 
-    page = parseInt(page);
-    limit = parseInt(limit);
+    page = parseInt(page, 10);
+    limit = parseInt(limit, 10);
 
     if (isNaN(page) || page < 1) page = 1;
     if (isNaN(limit) || limit < 1 || limit > 50) limit = 3;
 
-    // 2 build filter object
+    // 2. Build MongoDB query
     const query = {};
     const { status, language, genre, search } = req.query;
 
@@ -550,33 +550,42 @@ movieRouter.get("/movies", adminAuth, async (req, res) => {
       query.title = { $regex: search, $options: "i" };
     }
 
-    // Redis Cache Key
+    // 3. Generate Redis Cache Key
     const cacheKey = `movies:${JSON.stringify(req.query)}`;
 
-    // Check Redis
-    const cachedData = await redisClient.get(cacheKey);
+    // 4. Check Redis Cache
+    try {
+      const cachedData = await redisClient.get(cacheKey);
 
-    if (cachedData) {
-      return res.status(200).json({
-        source: "Redis Cache",
-        ...JSON.parse(cachedData),
-      });
+      if (cachedData) {
+        console.log("✅ Cache HIT:", cacheKey);
+
+        return res.status(200).json({
+          source: "Redis Cache",
+          ...JSON.parse(cachedData),
+        });
+      }
+
+      console.log("❌ Cache MISS:", cacheKey);
+    } catch (redisErr) {
+      console.error("Redis GET Error:", redisErr.message);
     }
 
-    // 3 calculate skip
+    // 5. Pagination
     const skip = (page - 1) * limit;
 
-    // 4 fetch movies
-    const movies = await Movie.find(query)
-      .skip(skip)
-      .limit(limit)
-      .sort({ releaseDate: -1 })
-      .select("title releaseDate language genre status");
+    // 6. Fetch data from MongoDB
+    const [movies, total] = await Promise.all([
+      Movie.find(query)
+        .skip(skip)
+        .limit(limit)
+        .sort({ releaseDate: -1 })
+        .select("title releaseDate language genre status"),
 
-    // 5 count total
-    const total = await Movie.countDocuments(query);
+      Movie.countDocuments(query),
+    ]);
 
-    // 6 pagination info
+    // 7. Pagination info
     const totalPages = Math.ceil(total / limit);
 
     const pagination = {
@@ -588,23 +597,34 @@ movieRouter.get("/movies", adminAuth, async (req, res) => {
       hasPrevPage: page > 1,
     };
 
-    // Response object
+    // 8. Response Object
     const response = {
       success: true,
       message: "Movies fetched successfully",
+      source: "MongoDB",
       data: movies,
       pagination,
     };
 
-    // Store in Redis (10 minutes)
-    await redisClient.set(cacheKey, JSON.stringify(response), {
-      EX: 600,
-    });
+    // 9. Store in Redis (10 Minutes)
+    try {
+      await redisClient.setEx(
+        cacheKey,
+        600,
+        JSON.stringify(response)
+      );
 
-    // Return response
+      console.log("✅ Cached:", cacheKey);
+    } catch (redisErr) {
+      console.error("Redis SET Error:", redisErr.message);
+    }
+
+    // 10. Return Response
     return res.status(200).json(response);
 
   } catch (err) {
+    console.error(err);
+
     return res.status(500).json({
       success: false,
       message: err.message || "Failed to get movies",
