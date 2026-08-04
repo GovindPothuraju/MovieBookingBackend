@@ -36,7 +36,7 @@ showRoutes.get('/movies/shows/:movieId/:date', async (req, res) => {
     // 4. fetch shows from the database that match the movieId and date range
     const shows = await Show.find({
       movieId : new mongoose.Types.ObjectId(movieId),
-      status: "scheduled",
+      status: "SCHEDULED",
       showTime:{
         $gte: startDate,
         $lt: endDate
@@ -65,6 +65,10 @@ showRoutes.get('/movies/shows/:movieId/:date', async (req, res) => {
       });
     });
     const result = Object.values(groupedShows);
+    console.log("movieId:", movieId);
+    console.log("date:", date);
+    console.log("start:", startDate);
+    console.log("end:",endDate);
     
     res.status(200).json({
       message: 'Shows fetched successfully',
