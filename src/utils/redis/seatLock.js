@@ -1,5 +1,4 @@
-
-const redisClient = require('../../config/redis');
+const redisClient = require("../../config/redis");
 
 /* Algorithm
   Try locking every seat.
@@ -7,7 +6,7 @@ const redisClient = require('../../config/redis');
   If any lock fails:
   delete previously acquired locks
   return failure.
-  Otherwise return success. 
+  Otherwise return success.
 
   SET key value NX EX 300
   NX → Set only if the key doesn't already exist.
@@ -18,12 +17,17 @@ const redisClient = require('../../config/redis');
  * Lock multiple seats atomically.
  * Rolls back previously acquired locks if any lock fails.
  */
+
 const LOCK_TTL = 300;
 
-const lockSeats = async ({showId,seatLabels , userId}) =>{
+const lockSeats = async ({ showId, seatLabels, userId }) => {
   const lockedKeys = [];
-  try{
-    for(const seatLabel of seatLabels){
+
+  // Moved outside try so catch can access it
+  const bookingKey = `booking_lock:${userId}:${showId}`;
+
+  try {
+    for (const seatLabel of seatLabels) {
       const key = `seat_lock:${showId}:${seatLabel}`;
 
       const result = await redisClient.set(
@@ -31,46 +35,54 @@ const lockSeats = async ({showId,seatLabels , userId}) =>{
         userId.toString(),
         {
           NX: true,
-          EX: LOCK_TTL
+          EX: LOCK_TTL,
         }
-      )
+      );
 
-      if(!result){
+      if (!result) {
         // Rollback previously locked seats
-        if(lockedKeys.length > 0){
+        if (lockedKeys.length > 0) {
           await redisClient.del(...lockedKeys);
         }
+
+        // Remove booking lock if created
+        await redisClient.del(bookingKey);
+
         return {
           success: false,
           seat: seatLabel,
         };
       }
+
       lockedKeys.push(key);
     }
+
     // Store all locked seats for this user
-    const bookingKey = `booking_lock:${userId}:${showId}`;
     await redisClient.set(
-        bookingKey,
-        JSON.stringify(seatLabels),
-        {
-            EX: LOCK_TTL,
-        }
+      bookingKey,
+      JSON.stringify(seatLabels),
+      {
+        EX: LOCK_TTL,
+      }
     );
+
     return {
       success: true,
     };
-  }catch (err) {
+  } catch (err) {
     if (lockedKeys.length > 0) {
       await redisClient.del(...lockedKeys);
     }
+
     await redisClient.del(bookingKey);
+
     throw err;
   }
-}
-//Before creating a booking, verify that all the Redis locks still exist and belong to the logged-in user.
+};
+
+// Before creating a booking, verify that all the Redis locks still exist
+// and belong to the logged-in user.
 const verifySeatLocks = async ({ showId, userId }) => {
-  /**But where do seatLabels come from? Remember, the frontend is no longer sending seats.So before verifying Redis, fetch the show and the user's locked seats. */
-    
   const bookingKey = `booking_lock:${userId}:${showId}`;
 
   // Get locked seats for this user

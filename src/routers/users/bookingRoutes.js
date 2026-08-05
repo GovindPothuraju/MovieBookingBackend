@@ -4,8 +4,16 @@ const { userAuth} = require('../../middleware/userAuth');
 const { default: mongoose } = require("mongoose");
 
 
+const Booking = require("../../models/bookingSchema");
+const redisClient = require("../../config/redis");
 
-const {validateLockSeatsRequest,validateShowAndSeats,validateBookedSeat,validateCreateBookingRequest,validateBookingDetails,} = require("../../utils/users/bookingValidation");
+const {
+  validateLockSeatsRequest,
+  validateShowAndSeats,
+  validateBookedSeats,
+  validateCreateBookingRequest,
+  validateBookingDetails,
+} = require("../../utils/users/bookingValidation");
 const { lockSeats ,verifySeatLocks} = require("../../utils/redis/seatLock");
 /**
  * POST /bookings/lock
@@ -78,12 +86,18 @@ bookingRouter.post("/bookings/lock",  userAuth, async (req, res) => {
  * User: confirm payment and create a booking for locked seats
  */
 bookingRouter.post("/bookings", userAuth, async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
     // 1. Read request
     const { showId, paymentId } = req.body;
 
     // 2. Validate request
-    const error = validateCreateBookingRequest({ showId,paymentId});
+    const error = validateCreateBookingRequest({
+      showId,
+      paymentId,
+    });
+
     if (error) {
       return res.status(400).json({
         success: false,
@@ -91,9 +105,10 @@ bookingRouter.post("/bookings", userAuth, async (req, res) => {
       });
     }
 
-    // 3. Verify Redis locks
+    // 3. Verify Redis seat locks
     const lockValidation = await verifySeatLocks({
-      showId,userId: req.user._id,
+      showId,
+      userId: req.user._id,
     });
 
     if (!lockValidation.success) {
@@ -102,8 +117,10 @@ bookingRouter.post("/bookings", userAuth, async (req, res) => {
         message: lockValidation.message,
       });
     }
+
     const { seatLabels } = lockValidation;
-    // 4. Verify booked seats
+
+    // 4. Validate booking details
     const bookingValidation = await validateBookingDetails(
       showId,
       seatLabels
@@ -116,7 +133,13 @@ bookingRouter.post("/bookings", userAuth, async (req, res) => {
       });
     }
 
-    const {show,seatDocuments,totalAmount,} = bookingValidation;
+    const {
+      show,
+      seatDocuments,
+      totalAmount,
+    } = bookingValidation;
+
+    // 5. Final booked-seat validation
     const bookedValidation = await validateBookedSeats(
       show._id,
       seatDocuments
@@ -128,99 +151,87 @@ bookingRouter.post("/bookings", userAuth, async (req, res) => {
         message: bookedValidation.message,
       });
     }
-    // transaction 
-   const session = await mongoose.startSession();
-    try {
-      session.startTransaction();
 
-      // Generate Booking ID
-      const bookingId = `BK-${Date.now()}`;
+    // 6. Start Transaction
+    session.startTransaction();
 
-      // Create Booking
-      const booking = await Booking.create(
-        [
-          {
-            bookingId,
-            userId: req.user._id,
-            showId: show._id,
-            movieId: show.movieId,
-            theaterId: show.theaterId,
-            screenId: show.screenId,
-            seats: seatLabels,
-            totalAmount,
-            paymentStatus: "SUCCESS",
-            bookingStatus: "CONFIRMED",
-            paymentId,
-            paymentMethod: "ONLINE",
-          },
-        ],
-        { session }
-      );
+    // Generate Booking Id
+    const bookingId = `BK-${Date.now()}`;
 
-      // Update booked seats
-      show.bookedSeats.push(...seatLabels);
+    // Create Booking
+    const booking = await Booking.create(
+      [
+        {
+          bookingId,
+          userId: req.user._id,
+          showId: show._id,
+          movieId: show.movieId,
+          theaterId: show.theaterId,
+          screenId: show.screenId,
+          seats: seatLabels,
+          totalAmount,
+          paymentStatus: "SUCCESS", // Replace after Stripe integration
+          bookingStatus: "CONFIRMED",
+          paymentId,
+          paymentMethod: "ONLINE",
+        },
+      ],
+      { session }
+    );
 
-      // Update available seats category wise
-      const categoryCount = {};
+    // Update booked seats
+    show.bookedSeats.push(...seatLabels);
 
-      for (const seat of seatDocuments) {
-        categoryCount[seat.category] =
-          (categoryCount[seat.category] || 0) + 1;
-      }
+    // Update available seats
+    const categoryCount = {};
 
-      for (const category in categoryCount) {
-        const priceInfo = show.priceMap.get(category);
-
-        priceInfo.availableSeats -= categoryCount[category];
-      }
-
-      await show.save({ session });
-
-      await session.commitTransaction();
-
-      session.endSession();
-
-      // 8. Release Redis locks
-
-      const bookingKey = `booking_lock:${req.user._id}:${show._id}`;
-
-      const seatKeys = seatLabels.map(
-        (seat) => `seat_lock:${show._id}:${seat}`
-      );
-
-      await redisClient.del(...seatKeys);
-
-      await redisClient.del(bookingKey);
-
-      return res.status(201).json({
-        success: true,
-        message: "Booking confirmed successfully.",
-        data: booking[0],
-      });
-    } catch (err) {
-      await session.abortTransaction();
-      session.endSession();
-      throw err;
+    for (const seat of seatDocuments) {
+      categoryCount[seat.category] =
+        (categoryCount[seat.category] || 0) + 1;
     }
-    // 9. Return success
+
+    for (const category in categoryCount) {
+      const categoryInfo = show.priceMap.get(category);
+
+      if (!categoryInfo) {
+        throw new Error(
+          `Category ${category} not found in show pricing.`
+        );
+      }
+
+      categoryInfo.availableSeats -= categoryCount[category];
+    }
+
+    await show.save({ session });
+
+    // Commit Transaction
+    await session.commitTransaction();
+
+    // 7. Release Redis Locks
+    const bookingKey = `booking_lock:${req.user._id}:${show._id}`;
+
+    const seatKeys = seatLabels.map(
+      (seat) => `seat_lock:${show._id}:${seat}`
+    );
+
+    await redisClient.del(...seatKeys);
+    await redisClient.del(bookingKey);
+
+    // 8. Return Success
     return res.status(201).json({
-    success: true,
-    message: "Booking created successfully.",
-    data: {
-      bookingId: booking[0].bookingId,
-      showId: booking[0].showId,
-      seats: booking[0].seats,
-      totalAmount: booking[0].totalAmount,
-      paymentStatus: booking[0].paymentStatus,
-      bookingStatus: booking[0].bookingStatus,
-      bookedAt: booking[0].bookedAt,
-    },
-  });
+      success: true,
+      message: "Booking created successfully.",
+      data: booking[0],
+    });
   } catch (err) {
+    await session.abortTransaction();
+
     return res.status(500).json({
       success: false,
       message: err.message,
     });
+  } finally {
+    session.endSession();
   }
 });
 

@@ -35,7 +35,9 @@ const Seat = require("../../models/admin/seatSchema");
 
 const validateShowAndSeats = async (showId, seatIds) => {
   // Check show exists
-  const show = await Show.findById(showId).select("screenId");
+  const show = await Show.findById(showId).select(
+    "screenId status showTime"
+  );
 
   if (!show) {
     return {
@@ -44,12 +46,34 @@ const validateShowAndSeats = async (showId, seatIds) => {
       message: "Show not found.",
     };
   }
-  // Fetch requested seats
-  const seatDocuments = await Seat.find({
-    _id: { $in: seatIds },
-    isActive :true
-  });
 
+  if (show.status !== "SCHEDULED") {
+    return {
+      isValid: false,
+      status: 400,
+      message: "Show is not available for booking.",
+    };
+  }
+
+  if (show.showTime <= new Date()) {
+    return {
+      isValid: false,
+      status: 400,
+      message: "Show has already started.",
+    };
+  }
+  // Fetch requested seats
+  const seatDocuments = await Seat.find(
+    {
+      _id: { $in: seatIds },
+      isActive: true,
+    },
+    {
+      seatLabel: 1,
+      category: 1,
+      screenId: 1,
+    }
+  );
   // Ensure every seat exists
   if (seatDocuments.length !== seatIds.length) {
     return {
@@ -89,7 +113,14 @@ const validateBookedSeats = async (showId , seatDocuments)=>{
     const requestedSeats = new Set(seatLabels);
 
     //check if any one seat is alredy booked
-    const existingBookings = await Booking.find({showId,bookingStatus:"CONFIRMED", seats :{$in:seatLabels}}).select("seats").lean();
+    const existingBookings = await Booking.find({
+      showId,
+      bookingStatus: "CONFIRMED",
+      paymentStatus: "SUCCESS",
+      seats: { $in: seatLabels },
+    })
+      .select("seats")
+      .lean();
     if(existingBookings.length > 0){
       const bookedSeats = new Set();
 
@@ -177,7 +208,7 @@ const validateBookingDetails = async (showId, seatLabels) => {
       };
     }
 
-    totalAmount += pricing.price;
+    totalAmount += Number(pricing.price);
   }
 
   return {
