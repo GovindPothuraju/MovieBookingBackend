@@ -481,7 +481,6 @@ showRouter.patch("/shows/:id", adminAuth, async (req, res) => {
  */
 showRouter.get("/shows", adminAuth, async (req, res) => {
   try {
-    // 1. Parse query params
     let {
       page = 1,
       limit = 10,
@@ -492,14 +491,9 @@ showRouter.get("/shows", adminAuth, async (req, res) => {
       status,
     } = req.query;
 
-    page = parseInt(page);
-    limit = parseInt(limit);
+    page = Math.max(1, parseInt(page) || 1);
+    limit = Math.min(50, Math.max(1, parseInt(limit) || 10));
 
-    if (isNaN(page) || page < 1) page = 1;
-    if (isNaN(limit) || limit < 1) limit = 10;
-    if (limit > 50) limit = 50;
-
-    // 2. Build filter
     const filter = {};
 
     if (movieId) {
@@ -554,23 +548,21 @@ showRouter.get("/shows", adminAuth, async (req, res) => {
       };
     }
 
-    if (status) {
-      const allowedStatus = ["SCHEDULED", "CANCELLED", "COMPLETED"];
+    const allowedStatus = [
+      "SCHEDULED",
+      "RUNNING",
+      "COMPLETED",
+      "CANCELLED",
+    ];
 
-      if (!allowedStatus.includes(status)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid status",
-        });
-      }
-
-      filter.status = status;
+    if (status && !allowedStatus.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status",
+      });
     }
 
-    // 3. Pagination
-    const skip = (page - 1) * limit;
-
-    // 4. Fetch shows
+    // Fetch all matching shows except status
     const shows = await Show.find(filter)
       .populate(
         "movieId",
@@ -585,30 +577,42 @@ showRouter.get("/shows", adminAuth, async (req, res) => {
         "name screenType totalSeats"
       )
       .sort({ showTime: 1 })
-      .skip(skip)
-      .limit(limit)
-      .select("-__v");
+      .select("-__v")
+      .lean();
 
-    const updatedShows =  shows.map((show) => {
-        const showObj = show.toObject();
-        showObj.status = getShowStatus(show);
-        return showObj;
-      });
+    // Compute dynamic status
+    let updatedShows = shows.map((show) => ({
+      ...show,
+      status: getShowStatus(show),
+    }));
 
-    // 6. Count
-    const totalShows = await Show.countDocuments(filter);
+    // Apply status filter AFTER computing status
+    if (status) {
+      updatedShows = updatedShows.filter(
+        (show) => show.status === status
+      );
+    }
 
-    // 7. Response
+    // Pagination AFTER filtering
+    const totalShows = updatedShows.length;
+    const totalPages = Math.ceil(totalShows / limit);
+    const skip = (page - 1) * limit;
+
+    const paginatedShows = updatedShows.slice(
+      skip,
+      skip + limit
+    );
+
     return res.status(200).json({
       success: true,
       message: "Shows retrieved successfully",
-      data: updatedShows,
+      data: paginatedShows,
       pagination: {
         totalShows,
         currentPage: page,
-        totalPages: Math.ceil(totalShows / limit),
+        totalPages,
         limit,
-        hasNextPage: page * limit < totalShows,
+        hasNextPage: page < totalPages,
         hasPrevPage: page > 1,
       },
     });
