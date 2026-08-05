@@ -245,11 +245,76 @@ bookingRouter.post("/bookings", userAuth, async (req, res) => {
  * GET /bookings/me
  * User: get all bookings of the logged-in user
  */
+bookingRouter.get("/bookings/me", userAuth, async (req, res) => {
+  try {
+    const bookings = await Booking.find({
+      userId: req.user._id,
+    })
+      .populate("movieId", "title poster")
+      .populate("theaterId", "name location")
+      .populate("showId", "showTime")
+      .sort({ bookedAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      message: "Bookings fetched successfully.",
+      data: bookings,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
 
 /**
  * GET /bookings/:bookingId
  * User: get details of a specific booking
  */
+bookingRouter.get("/bookings/:bookingId", userAuth, async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    // Validate bookingId
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid bookingId.",
+      });
+    }
+
+    // Find booking
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      userId: req.user._id,
+    })
+      .populate("movieId", "title poster")
+      .populate("theaterId", "name location")
+      .populate("screenId", "name")
+      .populate("showId", "showTime")
+      .lean();
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Booking fetched successfully.",
+      data: booking,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
 
 /**
  * POST /bookings/:bookingId/cancel
