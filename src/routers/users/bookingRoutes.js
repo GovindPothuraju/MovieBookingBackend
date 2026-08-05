@@ -5,7 +5,7 @@ const { default: mongoose } = require("mongoose");
 
 
 
-const {validateLockSeatsRequest,validateShowAndSeat,validateBookedSeats} = require("../../utils/users/bookingValidation");
+const {validateLockSeatsRequest,validateShowAndSeats,validateBookedSeats} = require("../../utils/users/bookingValidation");
 const { lockSeats } = require("../../utils/redis/seatLock");
 /**
  * POST /bookings/lock
