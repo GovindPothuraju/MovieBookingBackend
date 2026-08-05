@@ -16,16 +16,27 @@ const { validateShowInput,validateShowUpdateInput } = require('../../validators/
 const getShowStatus = (show) => {
   const now = new Date();
 
+  // If already cancelled
   if (show.status === "CANCELLED") {
-      return "CANCELLED";
+    return "CANCELLED";
   }
 
-  if (now < show.showTime) {
-      return "SCHEDULED";
+  const showStartTime = new Date(show.showTime);
+
+  // Movie duration in minutes
+  const duration = show.movieId.duration;
+
+  // Calculate show end time
+  const showEndTime = new Date(
+    showStartTime.getTime() + duration * 60 * 1000
+  );
+
+  if (now < showStartTime) {
+    return "SCHEDULED";
   }
 
-  if (now >= show.showTime && now < showEndTime) {
-      return "RUNNING";
+  if (now >= showStartTime && now < showEndTime) {
+    return "RUNNING";
   }
 
   return "COMPLETED";
