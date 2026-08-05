@@ -65,10 +65,6 @@ showRoutes.get('/movies/shows/:movieId/:date', async (req, res) => {
       });
     });
     const result = Object.values(groupedShows);
-    console.log("movieId:", movieId);
-    console.log("date:", date);
-    console.log("start:", startDate);
-    console.log("end:",endDate);
     
     res.status(200).json({
       message: 'Shows fetched successfully',
