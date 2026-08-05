@@ -11,7 +11,7 @@ const { lockSeats } = require("../../utils/redis/seatLock");
  * POST /bookings/lock
  * User: temporarily lock selected seats before payment (Redis)
  */
-bookingRouter.post("/bookings/lock", userAuth, async (req, res) => {
+bookingRouter.post("/user/bookings/lock", userAuth, async (req, res) => {
   try {
     // 1. Read request
     const {showId , seats} = req.body;
