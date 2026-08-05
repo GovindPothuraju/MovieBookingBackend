@@ -111,4 +111,87 @@ const validateBookedSeats = async (showId , seatDocuments)=>{
     }
 }
 
-module.exports = {validateLockSeatsRequest,validateShowAndSeats,validateBookedSeats};
+
+const validateCreateBookingRequest = ({ showId, paymentId }) => {
+  if (!showId || !mongoose.Types.ObjectId.isValid(showId)) {
+    return "Invalid showId.";
+  }
+
+  if (!paymentId) {
+    return "PaymentId is required.";
+  }
+
+  return null;
+};
+
+
+const validateBookingDetails = async (showId, seatLabels) => {
+  // Fetch show
+  const show = await Show.findById(showId);
+
+  if (!show) {
+    return {
+      isValid: false,
+      status: 404,
+      message: "Show not found.",
+    };
+  }
+
+  if (show.status !== "SCHEDULED") {
+    return {
+      isValid: false,
+      status: 400,
+      message: "Show is not available for booking.",
+    };
+  }
+
+  // Fetch seat documents
+  const seatDocuments = await Seat.find({
+    screenId: show.screenId,
+    seatLabel: { $in: seatLabels },
+    isActive: true,
+  });
+
+  // Ensure every seat exists
+  if (seatDocuments.length !== seatLabels.length) {
+    return {
+      isValid: false,
+      status: 400,
+      message: "One or more seats are invalid.",
+    };
+  }
+
+  // Calculate amount
+  let totalAmount = 0;
+
+  for (const seat of seatDocuments) {
+    const category = seat.category;
+
+    const pricing = show.priceMap.get(category);
+
+    if (!pricing) {
+      return {
+        isValid: false,
+        status: 400,
+        message: `Pricing not found for category ${category}.`,
+      };
+    }
+
+    totalAmount += pricing.price;
+  }
+
+  return {
+    isValid: true,
+    show,
+    seatDocuments,
+    totalAmount,
+  };
+};
+
+module.exports = {
+  validateLockSeatsRequest,
+  validateShowAndSeats,
+  validateBookedSeats,
+  validateCreateBookingRequest,
+  validateBookingDetails,
+};
