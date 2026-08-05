@@ -23,6 +23,7 @@ const bookingRoutes = require("./routers/admin/bookingRoutes");
 const userRoutes = require("./routers/users/userRoutes");
 const userMovieRoutes = require("./routers/users/movieRoutes");
 const userShowRoutes = require("./routers/users/showRoutes");
+const bookingRouter = require("./routers/users/bookingRoutes")
 
 // Redis Import from config-redis
 const  redisClient  = require("./config/redis");
@@ -53,6 +54,7 @@ app.use("/", bookingRoutes);
 app.use("/user", userRoutes);
 app.use("/user", userMovieRoutes);
 app.use("/user", userShowRoutes);
+app.use("/user", bookingRouter);
 
 // Health check
 app.get("/healthz", (req, res) => {
