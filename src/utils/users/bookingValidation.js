@@ -44,10 +44,10 @@ const validateShowAndSeats = async (showId, seatIds) => {
       message: "Show not found.",
     };
   }
-
   // Fetch requested seats
   const seatDocuments = await Seat.find({
     _id: { $in: seatIds },
+    isActive :true
   });
 
   // Ensure every seat exists

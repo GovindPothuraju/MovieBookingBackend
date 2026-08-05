@@ -18,6 +18,7 @@ const redisClient = require('../../config/redis');
  * Lock multiple seats atomically.
  * Rolls back previously acquired locks if any lock fails.
  */
+const LOCK_TTL = 300;
 
 const lockSeats = async ({showId,seatLabels , userId}) =>{
   const lockedKeys = [];
@@ -30,14 +31,14 @@ const lockSeats = async ({showId,seatLabels , userId}) =>{
         userId.toString(),
         {
           NX: true,
-          EX: 300
+          EX: LOCK_TTL
         }
       )
 
       if(!result){
         // Rollback previously locked seats
         if(lockedKeys.length > 0){
-          await redisClient.del(lockedKeys);
+          await redisClient.del(...lockedKeys);
         }
         return {
           success: false,
@@ -51,7 +52,7 @@ const lockSeats = async ({showId,seatLabels , userId}) =>{
     };
   }catch (err) {
     if (lockedKeys.length > 0) {
-      await redisClient.del(lockedKeys);
+      await redisClient.del(...lockedKeys);
     }
 
     throw err;
