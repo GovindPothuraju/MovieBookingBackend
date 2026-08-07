@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const validateCreateOrderRequest = ({showId}) =>{
+const validateCreateOrderRequest = (showId) =>{
   if(!showId){
     return "showId is required.";
   }

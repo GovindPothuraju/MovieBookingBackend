@@ -55,6 +55,16 @@ paymentRouter.post("/payments/create-order" , userAuth , async (req,res)=>{
 
     // 5. create razorPay order
     const receipt = crypto.randomUUID();
+    const razorpayOrder = await razorpay.orders.create({
+        amount: totalAmount * 100,
+        currency: "INR",
+        receipt,
+        notes: {
+          userId: req.user._id.toString(),
+          showId:show._id.toString(),
+        },
+    });
+
     // 6. save payement
     const payment = await Payment.create({
       razorpayOrderId:razorpayOrder.id,
