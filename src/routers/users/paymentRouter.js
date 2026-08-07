@@ -7,18 +7,12 @@ const Payment = require("../../models/paymentSchema");
 const crypto = require("crypto");
 
 const {userAuth} = require("../../middleware/userAuth");
+const {validateCreateOrderRequest} = require("../../utils/users/paymentValidation");
+const {verifySeatLocks} = require("../../utils/redis/seatLock");
+const {validateBookingDetails} = require("../../utils/users/bookingValidation");
 
-const {
-    validateCreateOrderRequest
-} = require("../../utils/users/paymentValidation");
-
-const {
-    verifySeatLocks
-} = require("../../utils/redis/seatLock");
-
-const {
-    validateBookingDetails
-} = require("../../utils/users/bookingValidation");
+// to validate webhook signature
+const { validateWebhookSignature } = require("razorpay/dist/utils/razorpay-utils");
 
 
 paymentRouter.post("/payments/create-order" , userAuth , async (req,res)=>{
@@ -94,5 +88,78 @@ paymentRouter.post("/payments/create-order" , userAuth , async (req,res)=>{
   }
 })
 
+/**
+ * POST /payments/webhook
+ * Razorpay webhook endpoint
+ */
+paymentRouter.post("/payments/webhook",async (req,res)=>{
+  try{
+      // 1. Read signature
+      const webhookSignature = req.get("X-Razorpay-Signature");
+      if (!webhookSignature) {
+        return res.status(400).json({
+          success: false,
+          message: "Webhook signature missing.",
+        });
+      }
+      // 2. verify signature
+      const iswebhookValid = validateWebhookSignature(
+        JSON.stringify(req.body),
+        webhookSignature,
+        process.env.RAZORPAY_WEBHOOK_SECRET
+      )
+      if (!isWebhookValid) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid webhook signature.",
+        });
+      }
+      // 3.parse webhook Body 
+      const payload = JSON.parse(req.body.toString());
+      const event = payload.event;
+      const paymentEntity = payload.payload.payment.entity;
+      // 4. find payment
+      const payment = await Payment.findOne({
+        razorpayOrderId: paymentEntity.order_id,
+      }); 
+      if (!payment) {
+        console.log(`Payment not found for order ${paymentEntity.order_id}`);
+        // Return 200 so Razorpay doesn't retry forever
+        return res.status(200).json({
+          success: true,
+        });
+      }
+      // 5.Idempotenmcy check
+      if (payment.paymentStatus === "SUCCESS") {
+        console.log(`Webhook already processed for ${payment.razorpayOrderId}`);
+        return res.status(200).json({
+          success: true,
+        });
+      }
+      switch (event) {
+        case "payment.captured":
+          console.log("Payment Captured");
+          break;
+
+        case "payment.failed":
+          console.log("Payment Failed");
+          break;
+
+        default:
+          console.log(`Ignoring event: ${event}`);
+      }
+
+      // 7.return response
+      return res.status(200).json({
+        success: true,
+        message: "Webhook received successfully"
+      });
+    }catch(err){
+      return res.status(500).json({
+        success: false,
+        message: err.message,
+      });
+  }
+})
 
 module.exports = paymentRouter;

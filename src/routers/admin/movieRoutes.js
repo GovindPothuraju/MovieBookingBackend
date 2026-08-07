@@ -611,8 +611,6 @@ movieRouter.get("/movies", adminAuth, async (req, res) => {
         600,
         JSON.stringify(response)
       );
-
-      console.log("✅ Cached:", cacheKey);
     } catch (redisErr) {
       console.error("Redis SET Error:", redisErr.message);
     }

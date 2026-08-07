@@ -36,7 +36,10 @@ app.use(
     credentials: true,
   })
 );
-
+// Webhook signature is generated from the original raw request body.
+// express.json() parses and changes the body, causing signature verification to fail.
+// express.raw() preserves the exact bytes sent by Razorpay for secure verification.
+app.use("/user/payments/webhook",express.raw({type:"application/json"}));
 app.use(express.json());
 app.use(cookieParser());
 
