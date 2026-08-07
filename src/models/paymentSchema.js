@@ -73,4 +73,4 @@ paymentSchema.index({ userId: 1, createdAt: -1 });
 
 paymentSchema.index({ showId: 1 });
 
-module.exports = mongoose.model("Payement",paymentSchema);
+module.exports = mongoose.model("Payment", paymentSchema);
