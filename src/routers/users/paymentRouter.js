@@ -21,7 +21,7 @@ const {
 } = require("../../utils/users/bookingValidation");
 
 
-paymentRouter.post("/payment/create-order" , userAuth , async (req,res)=>{
+paymentRouter.post("/payments/create-order" , userAuth , async (req,res)=>{
   try{
     // 1. read request
     const {showId} = req.body;
