@@ -10,6 +10,7 @@ const {userAuth} = require("../../middleware/userAuth");
 const {validateCreateOrderRequest} = require("../../utils/users/paymentValidation");
 const {verifySeatLocks} = require("../../utils/redis/seatLock");
 const {validateBookingDetails} = require("../../utils/users/bookingValidation");
+const {createBooking,} = require("../../services/bookingService");
 
 // to validate webhook signature
 const { validateWebhookSignature } = require("razorpay/dist/utils/razorpay-utils");
@@ -156,9 +157,8 @@ paymentRouter.post("/payments/webhook", async (req, res) => {
         payment.paymentMethod = paymentEntity.method;
         payment.capturedAt = new Date();
         await payment.save();
-        console.log(
-          `Payment ${payment.razorpayOrderId} marked SUCCESS`
-        );
+        // creating booking
+        const booking = await createBooking({payment});
         break;
       }
 

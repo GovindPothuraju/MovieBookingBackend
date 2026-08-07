@@ -11,10 +11,10 @@ const crypto = require("crypto");
 
 const { validateAdminRegister } = require("../../validators/adminValidator");
 const { validateAdminLogin } = require("../../validators/adminValidator");
-const {getLoginOTPTemplate} = require("../../utils/emailTemplate");
+const {getLoginOTPTemplate} = require("../../utils/emailTemplates/emailTemplate");
 
 const Admin = require("../../models/admin/AdminModel");
-const sendEmail = require("../../utils/sendEmail");
+const sendEmail = require("../../utils/emailTemplates/sendEmail");
 const adminAuth = require("../../middleware/adminAuth");
 
 
