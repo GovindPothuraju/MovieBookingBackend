@@ -98,7 +98,7 @@ paymentRouter.post("/payments/webhook", async (req, res) => {
     console.log("========== WEBHOOK RECEIVED ==========");
     console.log(req.body.event);
     // 1. Read Signature
-    const webhookSignature = req.headers["x-razorpay-signature"];
+    const webhookSignature = req.get(" JSON.stringify(req.body),");
 
     if (!webhookSignature) {
       return res.status(400).json({
@@ -108,10 +108,10 @@ paymentRouter.post("/payments/webhook", async (req, res) => {
     }
 
     // 2. Convert Raw Buffer -> String
-    const body = req.body.toString("utf8");
+   // const body = req.body.toString("utf8");
     // 3. Verify Signature
     const isWebhookValid = validateWebhookSignature(
-      body,
+      JSON.stringify(req.body),
       webhookSignature,
       process.env.RAZORPAY_WEBHOOK_SECRET
     );
