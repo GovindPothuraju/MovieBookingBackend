@@ -19,19 +19,22 @@ const { lockSeats ,verifySeatLocks} = require("../../utils/redis/seatLock");
  * POST /bookings/lock
  * User: temporarily lock selected seats before payment (Redis)
  */
-bookingRouter.post("/bookings/lock",  userAuth, async (req, res) => {
+bookingRouter.post("/bookings/lock", userAuth, async (req, res) => {
   try {
     // 1. Read request
-    const {showId , seats} = req.body;
+    const { showId, seats } = req.body;
+
+    // 2. Validate request
     const error = validateLockSeatsRequest({ showId, seats });
-    if(error){
+
+    if (error) {
       return res.status(400).json({
         success: false,
         message: error,
       });
     }
 
-    // 3. show and seat validation
+    // 3. Validate show and seats
     const seatIds = seats.map((seat) => seat._id);
 
     const validation = await validateShowAndSeats(showId, seatIds);
@@ -43,40 +46,55 @@ bookingRouter.post("/bookings/lock",  userAuth, async (req, res) => {
       });
     }
 
-    const { show, seats: seatDocuments } = validation;
+    const {
+      show,
+      seats: seatDocuments,
+    } = validation;
 
-    // 4. check seats are already booked or not
-    const bookedValidation = await validateBookedSeats( show._id , seatDocuments);
+    // 4. Check seats are already booked
+    const bookedValidation = await validateBookedSeats(
+      show._id,
+      seatDocuments
+    );
+
     if (!bookedValidation.isValid) {
       return res.status(bookedValidation.status).json({
         success: false,
         message: bookedValidation.message,
       });
     }
-    // 5. Lock seats in Redis (concurrency)
-    const seatLabels = seatDocuments.map((seat)=>seat.seatLabel);
+
+    // 5. Lock seats in Redis
+    const seatLabels = seatDocuments.map(
+      (seat) => seat.seatLabel
+    );
+
     const redisLock = await lockSeats({
-      showId : show._id,
+      showId: show._id,
       seatLabels,
-      userId : req.user._id
-    })
+      userId: req.user._id,
+    });
+
     if (!redisLock.success) {
       return res.status(409).json({
-          success: false,
-          message: `Seat ${redisLock.seat} was just selected by another user.`,
+        success: false,
+        message: `Seat ${redisLock.seat} was just selected by another user.`,
       });
     }
-    // 6. Return success
+
+    // 6. Success
     return res.status(200).json({
-        success: true,
-        message: "Seats locked successfully.",
-        expiresIn: 300
+      success: true,
+      message: "Seats locked successfully.",
+      expiresIn: 300, // seconds
     });
 
   } catch (err) {
-    res.status(500).json({
+    console.error(err);
+
+    return res.status(500).json({
       success: false,
-      message: err.message,
+      message: err.message || "Internal Server Error",
     });
   }
 });

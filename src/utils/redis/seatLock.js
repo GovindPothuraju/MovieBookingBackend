@@ -12,36 +12,33 @@ const redisClient = require("../../config/redis");
   NX → Set only if the key doesn't already exist.
   EX 300 → Automatically expire after 5 minutes.
 */
-
 /**
  * Lock multiple seats atomically.
  * Rolls back previously acquired locks if any lock fails.
  */
-
 const LOCK_TTL = 300;
-
 const lockSeats = async ({ showId, seatLabels, userId }) => {
   const lockedKeys = [];
-  // Moved outside try so catch can access it
   const bookingKey = `booking_lock:${userId}:${showId}`;
+
   try {
     for (const seatLabel of seatLabels) {
-      const key = `seat_lock:${showId}:${seatLabel}`;
+      const seatKey = `seat_lock:${showId}:${seatLabel}`;
+
       const result = await redisClient.set(
-        key,
+        seatKey,
         userId.toString(),
         {
-          NX: true,
-          EX: LOCK_TTL,
+          nx: true,
+          ex: LOCK_TTL,
         }
       );
-      if (!result) {
-        // Rollback previously locked seats
-        if (lockedKeys.length > 0) {
+
+      if (result !== "OK") {
+        if (lockedKeys.length) {
           await redisClient.del(...lockedKeys);
         }
 
-        // Remove booking lock if created
         await redisClient.del(bookingKey);
 
         return {
@@ -50,44 +47,50 @@ const lockSeats = async ({ showId, seatLabels, userId }) => {
         };
       }
 
-      lockedKeys.push(key);
+      lockedKeys.push(seatKey);
     }
-    // Store all locked seats for this user
+
     await redisClient.set(
       bookingKey,
-      JSON.stringify(seatLabels),
+      seatLabels,
       {
-        EX: LOCK_TTL,
+        ex: LOCK_TTL,
       }
     );
+
     return {
       success: true,
     };
+
   } catch (err) {
-    if (lockedKeys.length > 0) {
+    if (lockedKeys.length) {
       await redisClient.del(...lockedKeys);
     }
+
     await redisClient.del(bookingKey);
+
     throw err;
   }
 };
-
 /** Before creating a booking, verify that all the Redis locks still exist
  and belong to the logged-in user. */
+
 const verifySeatLocks = async ({ showId, userId }) => {
+
   const bookingKey = `booking_lock:${userId}:${showId}`;
-  // Get locked seats for this user
-  const lockedSeats = await redisClient.get(bookingKey);
-  if (!lockedSeats) {
+
+  const seatLabels = await redisClient.get(bookingKey);
+
+  if (!seatLabels) {
     return {
       success: false,
       status: 409,
       message: "Your seat lock has expired.",
     };
   }
-  const seatLabels = JSON.parse(lockedSeats);
-  // Verify every seat lock belongs to this user
+
   for (const seatLabel of seatLabels) {
+
     const seatKey = `seat_lock:${showId}:${seatLabel}`;
 
     const lockedUser = await redisClient.get(seatKey);
@@ -107,14 +110,15 @@ const verifySeatLocks = async ({ showId, userId }) => {
         message: `Seat ${seatLabel} is locked by another user.`,
       };
     }
+
   }
 
   return {
     success: true,
     seatLabels,
   };
-};
 
+};
 module.exports = {
   lockSeats,
   verifySeatLocks,
