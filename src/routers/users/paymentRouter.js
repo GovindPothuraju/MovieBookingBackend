@@ -75,7 +75,7 @@ paymentRouter.post("/payments/create-order" , userAuth , async (req,res)=>{
       currency : "INR",
       paymentStatus: "PENDING",
     })
-
+    console.log(payment);
     // 7. return order
     return res.status(201).json({
       success:true,
