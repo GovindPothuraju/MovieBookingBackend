@@ -556,17 +556,12 @@ movieRouter.get("/movies", adminAuth, async (req, res) => {
     // 4. Check Redis Cache
     try {
       const cachedData = await redisClient.get(cacheKey);
-
-      if (cachedData) {
-        console.log("✅ Cache HIT:", cacheKey);
-
+      if (cachedData){
         return res.status(200).json({
           source: "Redis Cache",
           ...JSON.parse(cachedData),
         });
       }
-
-      console.log("❌ Cache MISS:", cacheKey);
     } catch (redisErr) {
       console.error("Redis GET Error:", redisErr.message);
     }
