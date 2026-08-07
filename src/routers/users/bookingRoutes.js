@@ -82,6 +82,22 @@ bookingRouter.post("/bookings/lock",  userAuth, async (req, res) => {
 });
 
 /**
+ * POST /payments/create-order
+ * User: create a Razorpay order after verifying locked seats
+ */
+
+/**
+ * POST /payments/webhook
+ * Razorpay: receive payment events, verify signature, update payment,
+ * create booking, generate QR ticket, send email, and release Redis locks
+ */
+
+/**
+ * GET /payments/:paymentId
+ * User: get payment status for a specific payment
+ */
+
+/**
  * POST /bookings
  * User: confirm payment and create a booking for locked seats
  */
@@ -284,7 +300,6 @@ bookingRouter.get("/bookings/:bookingId", userAuth, async (req, res) => {
         message: "Invalid bookingId.",
       });
     }
-
     // Find booking
     const booking = await Booking.findOne({
       _id: bookingId,
@@ -320,5 +335,6 @@ bookingRouter.get("/bookings/:bookingId", userAuth, async (req, res) => {
  * POST /bookings/:bookingId/cancel
  * User: cancel a confirmed booking (subject to cancellation policy)
  */
+
 
 module.exports = bookingRouter;

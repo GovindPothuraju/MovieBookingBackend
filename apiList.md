@@ -229,3 +229,23 @@ Errors follow a standard format:
   "message": "Detailed error message"
 }
 ```
+
+Phase 2 — Advanced features
+
+After the above is complete:
+
+Anti-bot protection
+Waiting room / queue system
+Dynamic pricing
+Live analytics dashboard
+Fraud detection
+NFT tickets (optional)
+Suggested implementation order
+Stripe Payment
+Cancel Booking
+Refund API
+QR Ticket
+Email Notifications
+Show status scheduler
+Dashboard improvements
+Advanced features

@@ -22,14 +22,11 @@ const LOCK_TTL = 300;
 
 const lockSeats = async ({ showId, seatLabels, userId }) => {
   const lockedKeys = [];
-
   // Moved outside try so catch can access it
   const bookingKey = `booking_lock:${userId}:${showId}`;
-
   try {
     for (const seatLabel of seatLabels) {
       const key = `seat_lock:${showId}:${seatLabel}`;
-
       const result = await redisClient.set(
         key,
         userId.toString(),
@@ -38,7 +35,6 @@ const lockSeats = async ({ showId, seatLabels, userId }) => {
           EX: LOCK_TTL,
         }
       );
-
       if (!result) {
         // Rollback previously locked seats
         if (lockedKeys.length > 0) {
@@ -56,7 +52,6 @@ const lockSeats = async ({ showId, seatLabels, userId }) => {
 
       lockedKeys.push(key);
     }
-
     // Store all locked seats for this user
     await redisClient.set(
       bookingKey,
@@ -65,7 +60,6 @@ const lockSeats = async ({ showId, seatLabels, userId }) => {
         EX: LOCK_TTL,
       }
     );
-
     return {
       success: true,
     };
@@ -73,21 +67,17 @@ const lockSeats = async ({ showId, seatLabels, userId }) => {
     if (lockedKeys.length > 0) {
       await redisClient.del(...lockedKeys);
     }
-
     await redisClient.del(bookingKey);
-
     throw err;
   }
 };
 
-// Before creating a booking, verify that all the Redis locks still exist
-// and belong to the logged-in user.
+/** Before creating a booking, verify that all the Redis locks still exist
+ and belong to the logged-in user. */
 const verifySeatLocks = async ({ showId, userId }) => {
   const bookingKey = `booking_lock:${userId}:${showId}`;
-
   // Get locked seats for this user
   const lockedSeats = await redisClient.get(bookingKey);
-
   if (!lockedSeats) {
     return {
       success: false,
@@ -95,9 +85,7 @@ const verifySeatLocks = async ({ showId, userId }) => {
       message: "Your seat lock has expired.",
     };
   }
-
   const seatLabels = JSON.parse(lockedSeats);
-
   // Verify every seat lock belongs to this user
   for (const seatLabel of seatLabels) {
     const seatKey = `seat_lock:${showId}:${seatLabel}`;

@@ -23,7 +23,8 @@ const bookingRoutes = require("./routers/admin/bookingRoutes");
 const userRoutes = require("./routers/users/userRoutes");
 const userMovieRoutes = require("./routers/users/movieRoutes");
 const userShowRoutes = require("./routers/users/showRoutes");
-const bookingRouter = require("./routers/users/bookingRoutes")
+const bookingRouter = require("./routers/users/bookingRoutes");
+const paymentRouter = require("./routers/users/paymentRouter")
 
 // Redis Import from config-redis
 const  redisClient  = require("./config/redis");
@@ -55,23 +56,13 @@ app.use("/user", userRoutes);
 app.use("/user", userMovieRoutes);
 app.use("/user", userShowRoutes);
 app.use("/user", bookingRouter);
+app.use("/user", paymentRouter);
 
 // Health check
 app.get("/healthz", (req, res) => {
   res.status(200).json({
     status: "OK",
     message: "Server is running smoothly",
-  });
-});
-
-// Redis api testing
-app.get("/redis-test", async (req, res) => {
-  await redisClient.set("name", "Sai");
-
-  const value = await redisClient.get("name");
-
-  res.json({
-    value,
   });
 });
 
