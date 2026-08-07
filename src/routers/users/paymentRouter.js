@@ -104,11 +104,11 @@ paymentRouter.post("/payments/webhook",async (req,res)=>{
       }
       // 2. verify signature
       const iswebhookValid = validateWebhookSignature(
-        JSON.stringify(req.body),
+        req.body,
         webhookSignature,
         process.env.RAZORPAY_WEBHOOK_SECRET
       )
-      if (!isWebhookValid) {
+      if (!iswebhookValid) {
         return res.status(400).json({
           success: false,
           message: "Invalid webhook signature.",
@@ -137,14 +137,23 @@ paymentRouter.post("/payments/webhook",async (req,res)=>{
         });
       }
       switch (event) {
-        case "payment.captured":
-          console.log("Payment Captured");
+        case "payment.captured": {
+          payment.paymentStatus = "SUCCESS";
+          payment.razorpayPaymentId = paymentEntity.id;
+          payment.paymentMethod = paymentEntity.method;
+          payment.capturedAt = new Date();
+          await payment.save();
+          console.log( `Payment ${payment.razorpayOrderId} marked SUCCESS`);
           break;
-
-        case "payment.failed":
-          console.log("Payment Failed");
+        }
+        case "payment.failed": {
+          payment.paymentStatus = "FAILED";
+          payment.razorpayPaymentId = paymentEntity.id;
+          payment.paymentMethod = paymentEntity.method;
+          await payment.save();
+          console.log(`Payment ${payment.razorpayOrderId} marked FAILED`);
           break;
-
+        }
         default:
           console.log(`Ignoring event: ${event}`);
       }
