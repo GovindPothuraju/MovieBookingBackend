@@ -90,10 +90,6 @@ paymentRouter.post("/payments/create-order" , userAuth , async (req,res)=>{
 
 /**
  * POST /payments/webhook
- * Razorpay webhook endpoint
- */
-/**
- * POST /payments/webhook
  * Razorpay Webhook
  */
 paymentRouter.post("/payments/webhook", async (req, res) => {
@@ -101,7 +97,7 @@ paymentRouter.post("/payments/webhook", async (req, res) => {
     console.log("========== WEBHOOK CALLED ==========");
 
     // 1. Read Signature
-    const webhookSignature = req.headers["x-razorpay-signature"];
+    const webhookSignature = req.headers("x-razorpay-signature");
 
     if (!webhookSignature) {
       console.log("Webhook signature missing");
