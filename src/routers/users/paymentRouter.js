@@ -94,14 +94,10 @@ paymentRouter.post("/payments/create-order" , userAuth , async (req,res)=>{
  */
 paymentRouter.post("/payments/webhook", async (req, res) => {
   try {
-    console.log("========== WEBHOOK CALLED ==========");
-
     // 1. Read Signature
-    const webhookSignature = req.headers("x-razorpay-signature");
+    const webhookSignature = req.headers["x-razorpay-signature"];
 
     if (!webhookSignature) {
-      console.log("Webhook signature missing");
-
       return res.status(400).json({
         success: false,
         message: "Webhook signature missing.",
@@ -110,7 +106,6 @@ paymentRouter.post("/payments/webhook", async (req, res) => {
 
     // 2. Convert Raw Buffer -> String
     const body = req.body.toString("utf8");
-
     // 3. Verify Signature
     const isWebhookValid = validateWebhookSignature(
       body,
@@ -119,23 +114,16 @@ paymentRouter.post("/payments/webhook", async (req, res) => {
     );
 
     if (!isWebhookValid) {
-      console.log("Invalid Webhook Signature");
-
       return res.status(400).json({
         success: false,
         message: "Invalid webhook signature.",
       });
     }
-
-    console.log("Webhook Signature Verified");
-
     // 4. Parse Payload
     const payload = JSON.parse(body);
 
     const event = payload.event;
     const paymentEntity = payload.payload.payment.entity;
-
-    console.log("Event:", event);
 
     // 5. Find Payment
     const payment = await Payment.findOne({
@@ -155,8 +143,6 @@ paymentRouter.post("/payments/webhook", async (req, res) => {
 
     // 6. Idempotency Check
     if (payment.paymentStatus === "SUCCESS") {
-      console.log("Webhook already processed");
-
       return res.status(200).json({
         success: true,
       });
@@ -165,33 +151,25 @@ paymentRouter.post("/payments/webhook", async (req, res) => {
     // 7. Handle Events
     switch (event) {
       case "payment.captured": {
-
         payment.paymentStatus = "SUCCESS";
         payment.razorpayPaymentId = paymentEntity.id;
         payment.paymentMethod = paymentEntity.method;
         payment.capturedAt = new Date();
-
         await payment.save();
-
         console.log(
           `Payment ${payment.razorpayOrderId} marked SUCCESS`
         );
-
         break;
       }
 
       case "payment.failed": {
-
         payment.paymentStatus = "FAILED";
         payment.razorpayPaymentId = paymentEntity.id;
         payment.paymentMethod = paymentEntity.method;
-
         await payment.save();
-
         console.log(
           `Payment ${payment.razorpayOrderId} marked FAILED`
         );
-
         break;
       }
 
