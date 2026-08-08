@@ -12,7 +12,7 @@ const Booking = require("../../models/bookingSchema")
  * GET /dashboard/stats
  * Admin: get dashboard summary statistics
  */
-dashboardRouter.get("/dashboard/stats", async (req, res) => {
+dashboardRouter.get("/dashboard/stats",adminAuth, async (req, res) => {
     try{
       // 1 . totalUsers
       const totalUsers = await User.countDocuments({});
