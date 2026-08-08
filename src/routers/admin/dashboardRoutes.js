@@ -7,13 +7,12 @@ const User = require("../../models/users/userModel");
 const Movie = require("../../models/admin/movieModel");
 const Theater = require("../../models/admin/theaterModel");
 const Show = require("../../models/admin/showModel");
-const Bookings = require("../../models/bookingSchema")
-const Payments = require("../../models/paymentSchema");
+const Booking = require("../../models/bookingSchema")
 /**
  * GET /dashboard/stats
  * Admin: get dashboard summary statistics
  */
-dashboardRouter.get("/dashboard/stats", adminAuth, async (req, res) => {
+dashboardRouter.get("/dashboard/stats", async (req, res) => {
     try{
       // 1 . totalUsers
       const totalUsers = await User.countDocuments({});
@@ -27,10 +26,10 @@ dashboardRouter.get("/dashboard/stats", adminAuth, async (req, res) => {
       const totalBookings = await Booking.countDocuments({});
       // 6. total Revenu
       const bookings = await Booking.find({});
-      let revenue = 0;
+      let totalRevenue = 0;
       for(let booking of bookings){
         if(booking.paymentStatus=="SUCCESS" && booking.bookingStatus=="CONFIRMED"){
-          revenue+=booking.totalAmount;
+          totalRevenue+=booking.totalAmount;
         }
       }
       return res.status(200).json({
@@ -45,9 +44,10 @@ dashboardRouter.get("/dashboard/stats", adminAuth, async (req, res) => {
         }
       });
     }catch(err){
+      console.log(err);
       res.status(500).send({
         "success":false,
-        "message": err || "Internal Server Error"
+        "message": err
       })
     }
 });
