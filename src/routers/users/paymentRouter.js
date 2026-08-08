@@ -95,11 +95,8 @@ paymentRouter.post("/payments/create-order" , userAuth , async (req,res)=>{
  */
 paymentRouter.post("/payments/webhook", async (req, res) => {
   try {
-    console.log("========== WEBHOOK RECEIVED ==========");
-
     // 1. Read Razorpay webhook signature
     const webhookSignature = req.get("X-Razorpay-Signature");
-
 
     if (!webhookSignature) {
       return res.status(400).json({
@@ -125,11 +122,6 @@ paymentRouter.post("/payments/webhook", async (req, res) => {
 
     // 3. Get payment details directly from req.body
     const paymentDetails = req.body.payload.payment.entity;
-
-    console.log("Payment ID:", paymentDetails.id);
-    console.log("Order ID:", paymentDetails.order_id);
-    console.log("Payment Status:", paymentDetails.status);
-
     // 4. Find payment in database
     const payment = await Payment.findOne({
       razorpayOrderId: paymentDetails.order_id,
@@ -155,14 +147,10 @@ paymentRouter.post("/payments/webhook", async (req, res) => {
 
       await payment.save();
 
-      console.log("Payment saved successfully");
-
       // 6. Create booking
       const booking = await createBooking({
         payment,
       });
-
-      console.log("Booking created successfully");
 
       return res.status(200).json({
         success: true,
@@ -187,18 +175,13 @@ paymentRouter.post("/payments/webhook", async (req, res) => {
         message: "Payment marked as failed.",
       });
     }
-
     // 8. Ignore other events
-    console.log(`Ignoring Event: ${req.body.event}`);
-
     return res.status(200).json({
       success: true,
       message: "Webhook received successfully.",
     });
 
   } catch (err) {
-    console.error("Webhook Error:", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,

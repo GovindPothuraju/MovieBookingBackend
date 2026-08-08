@@ -18,7 +18,7 @@ const seatRoutes = require("./routers/admin/seatRoutes");
 const movieRoutes = require("./routers/admin/movieRoutes");
 const showRoutes = require("./routers/admin/showRoutes");
 const bookingRoutes = require("./routers/admin/bookingRoutes");
-
+const dashboardRoutes = require("./routers/admin/dashboardRoutes")
 // User Routes
 const userRoutes = require("./routers/users/userRoutes");
 const userMovieRoutes = require("./routers/users/movieRoutes");
@@ -36,9 +36,7 @@ app.use(
     credentials: true,
   })
 );
-// Webhook signature is generated from the original raw request body.
-// express.json() parses and changes the body, causing signature verification to fail.
-// express.raw() preserves the exact bytes sent by Razorpay for secure verification.
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -52,6 +50,8 @@ app.use("/", seatRoutes);
 app.use("/", movieRoutes);
 app.use("/", showRoutes);
 app.use("/", bookingRoutes);
+app.use("/",dashboardRoutes)
+
 
 // User routes
 app.use("/user", userRoutes);
@@ -59,6 +59,7 @@ app.use("/user", userMovieRoutes);
 app.use("/user", userShowRoutes);
 app.use("/user", bookingRouter);
 app.use("/user", paymentRouter);
+
 
 // Health check
 app.get("/healthz", (req, res) => {
