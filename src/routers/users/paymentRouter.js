@@ -96,9 +96,10 @@ paymentRouter.post("/payments/create-order" , userAuth , async (req,res)=>{
 paymentRouter.post("/payments/webhook", async (req, res) => {
   try {
     console.log("========== WEBHOOK RECEIVED ==========");
-    console.log(req.body.event);
-    // 1. Read Signature
+
+    // 1. Read Razorpay webhook signature
     const webhookSignature = req.get("X-Razorpay-Signature");
+
 
     if (!webhookSignature) {
       return res.status(400).json({
@@ -107,11 +108,10 @@ paymentRouter.post("/payments/webhook", async (req, res) => {
       });
     }
 
-    // 2. Convert Raw Buffer -> String
-    const body = req.body.toString("utf8");
-    // 3. Verify Signature
+    // 2. Verify webhook signature
+    // Same approach as your working code
     const isWebhookValid = validateWebhookSignature(
-      body,
+      JSON.stringify(req.body),
       webhookSignature,
       process.env.RAZORPAY_WEBHOOK_SECRET
     );
@@ -119,74 +119,85 @@ paymentRouter.post("/payments/webhook", async (req, res) => {
     if (!isWebhookValid) {
       return res.status(400).json({
         success: false,
-        message: "Invalid webhook signature.",
+        message: "Webhook signature is invalid.",
       });
     }
-    // 4. Parse Payload
-    const payload = JSON.parse(body);
 
-    const event = payload.event;
-    const paymentEntity = payload.payload.payment.entity;
+    // 3. Get payment details directly from req.body
+    const paymentDetails = req.body.payload.payment.entity;
 
-    // 5. Find Payment
+    console.log("Payment ID:", paymentDetails.id);
+    console.log("Order ID:", paymentDetails.order_id);
+    console.log("Payment Status:", paymentDetails.status);
+
+    // 4. Find payment in database
     const payment = await Payment.findOne({
-      razorpayOrderId: paymentEntity.order_id,
+      razorpayOrderId: paymentDetails.order_id,
     });
 
     if (!payment) {
       console.log(
-        `Payment not found for Order: ${paymentEntity.order_id}`
+        `Payment not found for Order: ${paymentDetails.order_id}`
       );
 
-      // Return 200 so Razorpay doesn't retry forever
       return res.status(200).json({
         success: true,
+        message: "Payment not found in database.",
       });
     }
 
-    // 6. Idempotency Check
-    if (payment.paymentStatus === "SUCCESS") {
+    // 5. Handle payment.captured
+    if (req.body.event === "payment.captured") {
+      payment.paymentStatus = "SUCCESS";
+      payment.razorpayPaymentId = paymentDetails.id;
+      payment.paymentMethod = paymentDetails.method;
+      payment.capturedAt = new Date();
+
+      await payment.save();
+
+      console.log("Payment saved successfully");
+
+      // 6. Create booking
+      const booking = await createBooking({
+        payment,
+      });
+
+      console.log("Booking created successfully");
+
       return res.status(200).json({
         success: true,
+        message: "Payment captured and booking created successfully.",
       });
     }
 
-    // 7. Handle Events
-    switch (event) {
-      case "payment.captured": {
-        payment.paymentStatus = "SUCCESS";
-        payment.razorpayPaymentId = paymentEntity.id;
-        payment.paymentMethod = paymentEntity.method;
-        payment.capturedAt = new Date();
-        await payment.save();
-        // creating booking
-        const booking = await createBooking({payment});
-        break;
-      }
+    // 7. Handle payment.failed
+    if (req.body.event === "payment.failed") {
+      payment.paymentStatus = "FAILED";
+      payment.razorpayPaymentId = paymentDetails.id;
+      payment.paymentMethod = paymentDetails.method;
 
-      case "payment.failed": {
-        payment.paymentStatus = "FAILED";
-        payment.razorpayPaymentId = paymentEntity.id;
-        payment.paymentMethod = paymentEntity.method;
-        await payment.save();
-        console.log(
-          `Payment ${payment.razorpayOrderId} marked FAILED`
-        );
-        break;
-      }
+      await payment.save();
 
-      default:
-        console.log(`Ignoring Event: ${event}`);
+      console.log(
+        `Payment ${payment.razorpayOrderId} marked FAILED`
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Payment marked as failed.",
+      });
     }
 
-    // 8. Success Response
+    // 8. Ignore other events
+    console.log(`Ignoring Event: ${req.body.event}`);
+
     return res.status(200).json({
       success: true,
-      message: "Webhook processed successfully.",
+      message: "Webhook received successfully.",
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("Webhook Error:", err);
 
     return res.status(500).json({
       success: false,
