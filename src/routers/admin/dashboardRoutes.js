@@ -255,31 +255,62 @@ dashboardRouter.get("/dashboard/booking-status", adminAuth, async (req, res) => 
  * Admin: get top booked movies
  */
 dashboardRouter.get("/dashboard/top-movies", adminAuth, async (req, res) => {
-
+  try{
+    // 1. get top 5 movies based on sucessfull confirmed bookings
+    const topMovies = await Booking.aggregate([
+      {
+        $match:{
+          paymentStatus: "SUCCESS",
+          bookingStatus: "CONFIRMED",
+        }
+      },{
+        $group:{
+          _id:"$movieId",
+          totalBookings :{
+            $sum:1
+          }
+        }
+      },{
+        $sort:{
+          totalBookings : -1
+        }
+      },{// only top 5
+        $limit : 5
+      },{// get movie information
+        $lookup: {
+          from: "movies",
+          localField: "_id",
+          foreignField: "_id",
+          as: "movie",
+        },
+      },
+      // Convert movie array into object
+      {
+        $unwind: "$movie",
+      },
+      // Return only required fields
+      {
+        $project: {
+          _id: 0,
+          movieId: "$_id",
+          movieName: "$movie.title",
+          totalBookings: 1,
+        },
+      },
+      
+    ])
+    return res.status(200).json({
+      success: true,
+      data: topMovies,
+    });
+  }catch(err){
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
+  }
 });
 
-/**
- * GET /dashboard/movie-genres
- * Admin: get movie genre distribution
- */
-dashboardRouter.get("/dashboQard/movie-genres", adminAuth, async (req, res) => {
 
-});
-
-/**
- * GET /dashboard/top-theaters
- * Admin: get theaters with highest bookings
- */
-dashboardRouter.get("/dashboard/top-theaters", adminAuth, async (req, res) => {
-
-});
-
-/**
- * GET /dashboard/recent-bookings
- * Admin: get latest bookings
- */
-dashboardRouter.get("/dashboard/recent-bookings", adminAuth, async (req, res) => {
-
-});
 
 module.exports = dashboardRouter;
