@@ -125,6 +125,92 @@ dashboardRouter.get("/dashboard/bookings",adminAuth ,  async (req, res) => {
 });
 
 /**
+ * GET /dashboard/revenue
+ * Admin: get revenue trend for the last 7 days
+ */
+dashboardRouter.get("/dashboard/revenue", adminAuth, async (req, res) => {
+  try {
+    // 1. Calculate last 7 days
+    const endDate = new Date();
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 6);
+
+    // Start from beginning of the first day
+    startDate.setHours(0, 0, 0, 0);
+
+    // 2. Get revenue grouped by date
+    const revenue = await Booking.aggregate([
+      {
+        $match: {
+          createdAt: {
+            $gte: startDate,
+            $lte: endDate,
+          },
+
+          paymentStatus: "SUCCESS",
+          bookingStatus: "CONFIRMED",
+        },
+      },
+
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$createdAt",
+            },
+          },
+
+          revenue: {
+            $sum: "$totalAmount",
+          },
+        },
+      },
+
+      {
+        $sort: {
+          _id: 1,
+        },
+      },
+    ]);
+
+    // 3. Make sure all 7 days are present
+    const result = [];
+
+    for (let i = 0; i < 7; i++) {
+      const date = new Date();
+
+      date.setDate(date.getDate() - (6 - i));
+
+      const dateString = date.toISOString().split("T")[0];
+
+      const found = revenue.find(
+        (item) => item._id === dateString
+      );
+
+      result.push({
+        date: dateString,
+        revenue: found ? found.revenue : 0,
+      });
+    }
+
+    // 4. Send response
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+
+  } catch (err) {
+    console.error("Dashboard revenue error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
+  }
+});
+/**
  * GET /dashboard/booking-status
  * Admin: get booking status distribution
  */
