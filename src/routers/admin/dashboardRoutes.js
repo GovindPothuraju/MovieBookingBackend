@@ -12,7 +12,7 @@ const Booking = require("../../models/bookingSchema")
  * GET /dashboard/stats
  * Admin: get dashboard summary statistics
  */
-dashboardRouter.get("/dashboard/stats",adminAuth, async (req, res) => {
+dashboardRouter.get("/dashboard/stats", adminAuth , async (req, res) => {
     try{
       // 1 . totalUsers
       // 2. totalMovie
@@ -20,7 +20,7 @@ dashboardRouter.get("/dashboard/stats",adminAuth, async (req, res) => {
       // 4. totalShows
       // 5. totalBookings
       // 6. total Revenu
-      const {totalUsers,totalMovies,totalTheaters,totalShows,totalBookings,revenueResult} = await Promise.all([
+      const [totalUsers,totalMovies,totalTheaters,totalShows,totalBookings,revenueResult] = await Promise.all([
           User.countDocuments({}),
           Movie.countDocuments({}),
           Theater.countDocuments({}),
@@ -40,6 +40,7 @@ dashboardRouter.get("/dashboard/stats",adminAuth, async (req, res) => {
             }
           ])
       ]);
+      console.log(revenueResult)
       const totalRevenue = revenueResult[0]?.totalRevenue || 0;
       return res.status(200).json({
         success: true,
@@ -53,6 +54,7 @@ dashboardRouter.get("/dashboard/stats",adminAuth, async (req, res) => {
         }
       });
     }catch(err){
+      console.log(err)
       res.status(500).send({
         "success":false,
         "message": err
