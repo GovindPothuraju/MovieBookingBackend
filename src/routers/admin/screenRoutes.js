@@ -359,49 +359,46 @@ screenRouter.get('/theaters/:theaterId/screens', adminAuth, async (req, res) => 
  * GET /screens
  * Admin only: list active screens with optional ?theaterId= and pagination
  */
-screenRouter.get("/screens", adminAuth, async (req, res) => {
+screenRouter.get("/screens", async (req, res) => {
   try {
-    let { theaterId,search ,page = 1, limit = 10 } = req.query;
+    let { theaterId, search = "", page = 1, limit = 10 } = req.query;
 
-    page = parseInt(page);
-    limit = parseInt(limit);
-
-    if (isNaN(page) || page < 1) page = 1;
-    if (isNaN(limit) || limit < 1) limit = 10;
+    // Pagination
+    page = Number(page);
+    limit = Number(limit);
+    if (!Number.isInteger(page) || page < 1) page = 1;
+    if (!Number.isInteger(limit) || limit < 1) limit = 10;
     if (limit > 50) limit = 50;
 
+    // Query
     const query = { isActive: true };
 
+    // Theater filter
     if (theaterId) {
       if (!mongoose.Types.ObjectId.isValid(theaterId)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid theater ID",
-        });
+        return res.status(400).json({ success: false, message: "Invalid theater ID" });
       }
       query.theaterId = theaterId;
     }
 
-    // search by screen name
-    if(search && search.trim()){
-      query.name = {
-        $regex: search.trim(),
-        $options: "i",
-      }
+    // Search
+    if (search && search.trim()) {
+      query.name = { $regex: search.trim(), $options: "i" };
     }
 
+    // Pagination calculation
     const skip = (page - 1) * limit;
 
-    const screens = await Screen.find(query)
-      .skip(skip)
-      .limit(limit)
-      .sort({ createdAt: -1 })
-      .populate("theaterId", "name city");
+    // Fetch screens and count
+    const [screens, totalScreens] = await Promise.all([
+      Screen.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).populate("theaterId", "name city").lean(),
+      Screen.countDocuments(query),
+    ]);
 
-    const totalScreens = await Screen.countDocuments(query);
+    // Pagination result
     const totalPages = Math.ceil(totalScreens / limit);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Screens fetched successfully",
       data: screens,
@@ -416,11 +413,7 @@ screenRouter.get("/screens", adminAuth, async (req, res) => {
     });
   } catch (err) {
     console.error("Get screens error:", err);
-    res.status(500).json({
-      success: false,
-      message: err.message || "Server error during fetching screens",
-    });
+    return res.status(500).json({ success: false, message: err.message || "Server error during fetching screens" });
   }
 });
-
 module.exports = screenRouter;
