@@ -361,7 +361,7 @@ screenRouter.get('/theaters/:theaterId/screens', adminAuth, async (req, res) => 
  */
 screenRouter.get("/screens", adminAuth, async (req, res) => {
   try {
-    let { theaterId, page = 1, limit = 10 } = req.query;
+    let { theaterId,search ,page = 1, limit = 10 } = req.query;
 
     page = parseInt(page);
     limit = parseInt(limit);
@@ -380,6 +380,14 @@ screenRouter.get("/screens", adminAuth, async (req, res) => {
         });
       }
       query.theaterId = theaterId;
+    }
+
+    // search by screen name
+    if(search && search.trim()){
+      query.name = {
+        $regex: search.trim(),
+        $options: "i",
+      }
     }
 
     const skip = (page - 1) * limit;
