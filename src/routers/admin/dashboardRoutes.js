@@ -15,23 +15,32 @@ const Booking = require("../../models/bookingSchema")
 dashboardRouter.get("/dashboard/stats",adminAuth, async (req, res) => {
     try{
       // 1 . totalUsers
-      const totalUsers = await User.countDocuments({});
-      // 2. totalMovies
-      const totalMovies = await Movie.countDocuments({})
+      // 2. totalMovie
       // 3. totalTheaters
-      const totalTheaters = await Theater.countDocuments({});
       // 4. totalShows
-      const totalShows = await Show.countDocuments({});
       // 5. totalBookings
-      const totalBookings = await Booking.countDocuments({});
       // 6. total Revenu
-      const bookings = await Booking.find({});
-      let totalRevenue = 0;
-      for(let booking of bookings){
-        if(booking.paymentStatus=="SUCCESS" && booking.bookingStatus=="CONFIRMED"){
-          totalRevenue+=booking.totalAmount;
-        }
-      }
+      const {totalUsers,totalMovies,totalTheaters,totalShows,totalBookings,revenueResult} = await Promise.all([
+          User.countDocuments({}),
+          Movie.countDocuments({}),
+          Theater.countDocuments({}),
+          Show.countDocuments({}),
+          Booking.countDocuments({}),
+          Booking.aggregate([
+            {
+              $match:{
+                paymentStatus: "SUCCESS",
+                bookingStatus: "CONFIRMED"
+              }
+            },{
+              $group:{
+                _id :null,
+                totalRevenue:{$sum:"$totalAmount"}
+              }
+            }
+          ])
+      ]);
+      const totalRevenue = revenueResult[0]?.totalRevenue || 0;
       return res.status(200).json({
         success: true,
         data: {
@@ -44,7 +53,6 @@ dashboardRouter.get("/dashboard/stats",adminAuth, async (req, res) => {
         }
       });
     }catch(err){
-      console.log(err);
       res.status(500).send({
         "success":false,
         "message": err
