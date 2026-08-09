@@ -63,19 +63,65 @@ dashboardRouter.get("/dashboard/stats", adminAuth , async (req, res) => {
 });
 
 /**
- * GET /dashboard/revenue
- * Admin: get revenue trend for the last 7 days
- */
-dashboardRouter.get("/dashboard/revenue", adminAuth, async (req, res) => {
-
-});
-
-/**
  * GET /dashboard/bookings
  * Admin: get booking trend for the last 7 days
  */
-dashboardRouter.get("/dashboard/bookings", adminAuth, async (req, res) => {
+dashboardRouter.get("/dashboard/bookings",adminAuth ,  async (req, res) => {
+  try{
+    //1. calculate 7 daus
+    const endDate = new Date();
 
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate()-6);
+    // set hours
+    startDate.setHours(0,0,0,0);
+    // 2. get booking count grouped by date
+    const bookings = await Booking.aggregate([
+      {
+        $match:{
+          createdAt:{
+            $gte : startDate,
+            $lte : endDate,
+          },
+          paymentStatus : "SUCCESS",
+          bookingStatus : "CONFIRMED"
+        }
+      },{
+        $group:{
+          _id:{
+            $dateToString:{
+              format: "%Y-%m-%d",
+              date: "$createdAt",
+            }
+          },
+          bookings:{$sum:1}
+        }
+      },{
+        $sort:{_id:1}
+      }
+    ]);
+    const result= [];
+    for(let i=0;i<7;i++){
+      const date = new Date();
+      date.setDate(date.getDate()- (6-i));
+      const dateString = date.toISOString().split("T")[0];
+      const found = bookings.find((item)=>item._id === dateString);
+      result.push({
+        date : dateString,
+        bookings : found ? found.bookings : 0
+      })
+    }
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });   
+  }catch(err){
+    console.error("Dashboard bookings error:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
+  }
 });
 
 /**
