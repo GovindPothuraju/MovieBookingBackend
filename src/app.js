@@ -33,12 +33,13 @@ const  redisClient  = require("./config/redis");
 const allowedOrigins = [
   "http://localhost:5173",
   "https://cineflow-booking-admin-panel.vercel.app",
-  "https://quickbook-eosin.vercel.app/"
+  "https://quickbook-eosin.vercel.app"
 ];
 
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Allow requests like Postman/server-to-server
       if (!origin) {
         return callback(null, true);
       }
@@ -51,8 +52,11 @@ app.use(
 
       return callback(new Error("Not allowed by CORS"));
     },
+
     credentials: true,
+
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
