@@ -215,7 +215,39 @@ dashboardRouter.get("/dashboard/revenue", adminAuth, async (req, res) => {
  * Admin: get booking status distribution
  */
 dashboardRouter.get("/dashboard/booking-status", adminAuth, async (req, res) => {
+  try{
+    // 1. get booking count grouped by status
+    const bookings = await Booking.aggregate([
+      {
+        $group:{
+          _id : "$bookingStatus",
+          count:{$sum:1}
+        }
+      }
+    ])
+    // 2. Make sure all booking statuses are present
+    const statses = ["CONFIRMED", "CANCELLED"];
 
+    const result = statses.map((status)=>{
+      const found = bookings.find((item)=>item._id === status);
+      return {
+        status,
+        count: found ? found.count : 0,
+      };
+    })
+    // 3. Send response
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+    
+  }catch(err){
+     return res.status(500).json({
+        success: false,
+        message:
+          err.message || "Internal Server Error",
+      });
+  }
 });
 
 /**
