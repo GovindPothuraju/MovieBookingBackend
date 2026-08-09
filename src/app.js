@@ -33,7 +33,7 @@ const  redisClient  = require("./config/redis");
 const allowedOrigins = [
   "http://localhost:5173",
   "https://cineflow-booking-admin-panel.vercel.app",
-  "https://quickbook-git-main-govindpothurajus-projects.vercel.app/"
+  "https://quickbook-eosin.vercel.app/"
 ];
 
 app.use(
