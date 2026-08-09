@@ -262,7 +262,7 @@ dashboardRouter.get("/dashboard/top-movies", adminAuth, async (req, res) => {
  * GET /dashboard/movie-genres
  * Admin: get movie genre distribution
  */
-dashboardRouter.get("/dashboard/movie-genres", adminAuth, async (req, res) => {
+dashboardRouter.get("/dashboQard/movie-genres", adminAuth, async (req, res) => {
 
 });
 
