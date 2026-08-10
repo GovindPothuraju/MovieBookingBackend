@@ -34,7 +34,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "https://cineflow-booking-admin-panel.vercel.app",
   "https://quickbook-eosin.vercel.app",
-  "https://quickbook.dpdns.org/"
+  "https://quickbook.dpdns.org"
 ];
 
 app.use(
