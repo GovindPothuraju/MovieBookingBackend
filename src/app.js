@@ -33,13 +33,13 @@ const  redisClient  = require("./config/redis");
 const allowedOrigins = [
   "http://localhost:5173",
   "https://cineflow-booking-admin-panel.vercel.app",
-  "https://quickbook-eosin.vercel.app"
+  "https://quickbook-eosin.vercel.app",
+  "https://quickbook.dpdns.org/"
 ];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests like Postman/server-to-server
       if (!origin) {
         return callback(null, true);
       }
