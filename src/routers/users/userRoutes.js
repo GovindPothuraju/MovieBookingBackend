@@ -19,10 +19,10 @@ userRouter.post('/register', async (req, res) => {
     const { value, error } = validateUserRegistration(req.body);
 
     if (error) {
+      console.log(error)
       return res.status(400).json({
         success: false,
-        message: "Registration failed",
-        error: error.details?.[0]?.message || error.message
+        message: error
       });
     }
 
