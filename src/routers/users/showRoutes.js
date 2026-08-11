@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const Show = require('../../models/admin/showModel');
 const Seat = require('../../models/admin/seatSchema');
 const Theater = require('../../models/admin/theaterModel');
+const Movie = require("../../models/admin/movieModel")
 
 const { userAuth } = require('../../middleware/userAuth');
 
@@ -15,10 +16,9 @@ const { userAuth } = require('../../middleware/userAuth');
  */
 showRoutes.get("/movies/shows/:slug/:date", userAuth, async (req, res) => {
   try {
-    // 1. Extract params
     const { slug, date } = req.params;
 
-    // 2. Validate date
+    // Validate date
     const selectedDate = new Date(date);
 
     if (Number.isNaN(selectedDate.getTime())) {
@@ -28,10 +28,11 @@ showRoutes.get("/movies/shows/:slug/:date", userAuth, async (req, res) => {
       });
     }
 
-    // 3. Find movie by slug
+    // Find movie
     const movie = await Movie.findOne({
       slug,
       isActive: true,
+      status: "NOW_SHOWING",
     }).select("_id title slug");
 
     if (!movie) {
@@ -41,28 +42,24 @@ showRoutes.get("/movies/shows/:slug/:date", userAuth, async (req, res) => {
       });
     }
 
-    // 4. Create date range
-    const startOfDay = new Date(selectedDate);
-    startOfDay.setHours(0, 0, 0, 0);
+    // Start and end of requested UTC date
+    const startOfDay = new Date(`${date}T00:00:00.000Z`);
+    const endOfDay = new Date(`${date}T23:59:59.999Z`);
 
-    const endOfDay = new Date(selectedDate);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    // 5. Find shows
+    // Find shows
     const shows = await Show.find({
       movieId: movie._id,
       showTime: {
         $gte: startOfDay,
         $lte: endOfDay,
       },
-      isActive: true,
+      status: "SCHEDULED",
     })
       .populate("theaterId", "name location")
       .populate("screenId", "name")
       .sort({ showTime: 1 })
       .lean();
 
-    // 6. Response
     return res.status(200).json({
       success: true,
       message: "Shows fetched successfully",
