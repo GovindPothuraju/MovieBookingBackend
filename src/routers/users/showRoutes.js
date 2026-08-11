@@ -6,86 +6,87 @@ const Show = require('../../models/admin/showModel');
 const Seat = require('../../models/admin/seatSchema');
 const Theater = require('../../models/admin/theaterModel');
 
+const { userAuth } = require('../../middleware/userAuth');
+
+
 /**
- * GET /shows/:movieId/:date
- * User: get all available shows for a movie by date
+ * GET /movies/shows/:slug/:date
+ * User: get shows for a movie on a specific date
  */
-showRoutes.get('/movies/shows/:movieId/:date', async (req, res) => {
+showRoutes.get("/movies/shows/:slug/:date", userAuth, async (req, res) => {
   try {
-    // 1. get movieId and date from req.params
-    const { movieId, date } = req.params;
-    // 2. validate movieId and date (basic validation)
-    if (!mongoose.Types.ObjectId.isValid(movieId)) {
+    // 1. Extract params
+    const { slug, date } = req.params;
+
+    // 2. Validate date
+    const selectedDate = new Date(date);
+
+    if (Number.isNaN(selectedDate.getTime())) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid movieId',
+        message: "Invalid date",
       });
     }
 
-    // Convert incoming date param to a Date object
-    const startDate = new Date(date);
-    if (isNaN(startDate.getTime())) {
-      return res.status(400).json({
+    // 3. Find movie by slug
+    const movie = await Movie.findOne({
+      slug,
+      isActive: true,
+    }).select("_id title slug");
+
+    if (!movie) {
+      return res.status(404).json({
         success: false,
-        message: 'Invalid date',
+        message: "Movie not found",
       });
     }
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + 1);
 
-    // 4. fetch shows from the database that match the movieId and date range
+    // 4. Create date range
+    const startOfDay = new Date(selectedDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(selectedDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // 5. Find shows
     const shows = await Show.find({
-      movieId : new mongoose.Types.ObjectId(movieId),
-      status: "SCHEDULED",
-      showTime:{
-        $gte: startDate,
-        $lt: endDate
-      }
+      movieId: movie._id,
+      showTime: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+      isActive: true,
     })
-    .populate('theaterId', 'name location')
-    .populate('screenId', 'name')
-    .sort({ showTime: 1 })
-    .lean();
+      .populate("theaterId", "name location")
+      .populate("screenId", "name")
+      .sort({ showTime: 1 })
+      .lean();
 
-    // 5. group shows by theater and format the response
-    const groupedShows = {};
-
-    shows.forEach(show => {
-      const theaterId = show.theaterId._id.toString();
-      if (!groupedShows[theaterId]) {
-        groupedShows[theaterId] = {
-          theater: show.theaterId,
-          shows: []
-        };
-      }
-      groupedShows[theaterId].shows.push({
-        showId: show._id,
-        screen: show.screenId.name,
-        showTime: show.showTime
-      });
-    });
-    const result = Object.values(groupedShows);
-    
-    res.status(200).json({
-      message: 'Shows fetched successfully',
+    // 6. Response
+    return res.status(200).json({
       success: true,
-      data: result
+      message: "Shows fetched successfully",
+      data: {
+        movie,
+        date,
+        shows,
+      },
     });
   } catch (err) {
-    res.status(500).json({
+    console.error("Get Shows Error:", err);
+
+    return res.status(500).json({
       success: false,
-      message: 'Error fetching shows',
-      error: err.message
+      message: "Internal server error",
     });
   }
 });
-
 
 /**
  * GET /shows/:showId/seats
  * User: get seat availability for a show
  */
-showRoutes.get("/shows/:showId/seats", async (req, res) => {
+showRoutes.get("/shows/:showId/seats", userAuth, async (req, res) => {
   try {
 
     const { showId } = req.params;

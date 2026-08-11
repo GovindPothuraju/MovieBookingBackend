@@ -8,7 +8,7 @@ const { userAuth} = require('../../middleware/userAuth');
  * GET /movies
  * User: list all active movies available for booking
  */
-movieRouter.get("/movies", async (req, res) => {
+movieRouter.get("/movies",userAuth , async (req, res) => {
 
   try {
 
