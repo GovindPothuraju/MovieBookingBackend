@@ -77,48 +77,40 @@ movieRouter.get("/movies", async (req, res) => {
 });
 
 /**
- * GET /movies/:id
- * User: get movie details by ID
+ * GET /movies/:slug
+ * User: get movie details by slug
  */
-movieRouter.get("/movies/:id", userAuth, async (req, res) => {
-
+movieRouter.get("/movies/:slug", userAuth, async (req, res) => {
   try {
+    // 1. Extract slug
+    const { slug } = req.params;
 
-    // 1. Extract ID
-    const { id } = req.params;
-
-    // 2. Validate ID
-    if (!Mongoose.Types.ObjectId.isValid(id)) {
-
-      return res.status(400).json({
-        success: false,
-        message: "Invalid movie ID",
-      });
-    }
-
-    // 3. Find movie
-    const movie = await Movie.findById(id)
+    // 2. Find movie
+    const movie = await Movie.findOne({
+      slug,
+      isActive: true,
+      status: "NOW_SHOWING",
+    })
       .select(
         "title description genres languages duration releaseDate rating cast crew posterUrl trailerUrl status slug"
       )
       .lean();
-    // 4. Validate movie
-    if (!movie || !movie.status === "NOW_SHOWING") {
 
+    // 3. Validate movie
+    if (!movie) {
       return res.status(404).json({
         success: false,
         message: "Movie not found",
       });
     }
 
-    // 5. Response
+    // 4. Response
     return res.status(200).json({
       success: true,
+      message: "Movie fetched successfully",
       data: movie,
     });
-
   } catch (err) {
-
     console.error("Get Movie Error:", err);
 
     return res.status(500).json({

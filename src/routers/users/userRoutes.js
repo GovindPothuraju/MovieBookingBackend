@@ -198,7 +198,7 @@ userRouter.post('/logout', async (req, res) => {
   }
 });
 
-
+``
 /**
  * GET /auth/profile
  * User: get current user profile

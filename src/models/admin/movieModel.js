@@ -97,6 +97,7 @@ const movieSchema = new mongoose.Schema(
     slug: {
       type: String,
       unique: true,
+      index:true
     },
   },
   {
@@ -121,17 +122,14 @@ movieSchema.index({
 
 // SLUG GENERATION
 movieSchema.pre("save", function (next) {
-
   if (this.isModified("title")) {
-
-    this.slug =
-      this.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-") +
-      "-" +
-      Date.now();
+    this.slug = this.title
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
   }
 
+  next();
 });
-
 module.exports = mongoose.model("Movie", movieSchema);
