@@ -82,10 +82,8 @@ movieRouter.get("/movies", async (req, res) => {
  */
 movieRouter.get("/movies/:slug", userAuth, async (req, res) => {
   try {
-    // 1. Extract slug
     const { slug } = req.params;
 
-    // 2. Find movie
     const movie = await Movie.findOne({
       slug,
       isActive: true,
@@ -96,7 +94,6 @@ movieRouter.get("/movies/:slug", userAuth, async (req, res) => {
       )
       .lean();
 
-    // 3. Validate movie
     if (!movie) {
       return res.status(404).json({
         success: false,
@@ -104,7 +101,6 @@ movieRouter.get("/movies/:slug", userAuth, async (req, res) => {
       });
     }
 
-    // 4. Response
     return res.status(200).json({
       success: true,
       message: "Movie fetched successfully",
