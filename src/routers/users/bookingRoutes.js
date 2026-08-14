@@ -114,10 +114,25 @@ bookingRouter.delete("/bookings/lock", userAuth, async (req, res) => {
       });
     }
 
-    // Remove duplicate seats
-    const seatLabels = [...new Set(seats)];
+    // Validate seat labels
+    const seatLabels = [
+      ...new Set(
+        seats.filter(
+          (seat) =>
+            typeof seat === "string" &&
+            seat.trim().length > 0
+        ).map((seat) => seat.trim())
+      ),
+    ];
 
-    // Release only this user's locks
+    if (seatLabels.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid seat labels are required.",
+      });
+    }
+
+    // Release only locks owned by this user
     const result = await releaseSeatLocks({
       showId: showId.toString(),
       seatLabels,
@@ -141,7 +156,6 @@ bookingRouter.delete("/bookings/lock", userAuth, async (req, res) => {
     });
   }
 });
-
 /**
  * GET /bookings/me
  * User: get all bookings of the logged-in user
