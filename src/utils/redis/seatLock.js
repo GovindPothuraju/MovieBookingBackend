@@ -124,11 +124,7 @@ const verifySeatLocks = async ({ showId, userId }) => {
   };
 };
 
-const releaseSeatLocks = async ({
-  showId,
-  seatLabels,
-  userId,
-}) => {
+/*const releaseSeatLocks = async ({ showId,seatLabels,userId,}) => {
   const keysToDelete = [];
 
   for (const seatLabel of seatLabels) {
@@ -151,6 +147,49 @@ const releaseSeatLocks = async ({
 
   return {
     released: keysToDelete.length,
+  };
+};*/
+const releaseSeatLocks = async ({ showId, seatLabels, userId }) => {
+  const keysToDelete = [];
+
+  for (const seatLabel of seatLabels) {
+    const key = `seat_lock:${showId}:${seatLabel}`;
+
+    const lockedUser = await redisClient.get(key);
+
+    console.log("Before delete:", {
+      key,
+      lockedUser,
+      userId: userId.toString(),
+    });
+
+    if (lockedUser === userId.toString()) {
+      keysToDelete.push(key);
+    }
+  }
+
+  let deletedCount = 0;
+
+  if (keysToDelete.length > 0) {
+    deletedCount = await redisClient.del(...keysToDelete);
+  }
+
+  // Verify that the keys are actually deleted
+  for (const key of keysToDelete) {
+    const existsAfterDelete = await redisClient.get(key);
+
+    console.log("After delete:", {
+      key,
+      value: existsAfterDelete,
+    });
+  }
+
+  const bookingKey = `booking_lock:${userId}:${showId}`;
+
+  await redisClient.del(bookingKey);
+
+  return {
+    released: deletedCount,
   };
 };
 
