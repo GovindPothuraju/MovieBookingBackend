@@ -36,8 +36,7 @@ const bookingTemplate = ({
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <title>Booking Confirmation</title>
+  <title>QuickBook Booking Confirmation</title>
 </head>
 
 <body style="
@@ -89,7 +88,7 @@ const bookingTemplate = ({
   color:#ffffff;
   letter-spacing:0.5px;
 ">
-  CINE<span style="color:#ef4444;">FLOW</span>
+  QUICK<span style="color:#ed1c24;">BOOK</span>
 </div>
 
 <p style="
@@ -160,6 +159,7 @@ const bookingTemplate = ({
 >
 
 <tr>
+
 <td style="padding:15px 18px;">
 
 <p style="
@@ -201,6 +201,7 @@ const bookingTemplate = ({
 </span>
 
 </td>
+
 </tr>
 
 </table>
@@ -228,6 +229,7 @@ const bookingTemplate = ({
 >
 
 <tr>
+
 <td
   width="50%"
   style="
@@ -250,9 +252,11 @@ const bookingTemplate = ({
 >
   ${movieName}
 </td>
+
 </tr>
 
 <tr>
+
 <td
   style="
     padding:10px 0;
@@ -275,9 +279,11 @@ const bookingTemplate = ({
 >
   ${theaterName}
 </td>
+
 </tr>
 
 <tr>
+
 <td
   style="
     padding:10px 0;
@@ -300,9 +306,11 @@ const bookingTemplate = ({
 >
   ${screenName}
 </td>
+
 </tr>
 
 <tr>
+
 <td
   style="
     padding:10px 0;
@@ -325,9 +333,11 @@ const bookingTemplate = ({
 >
   ${formattedDate}
 </td>
+
 </tr>
 
 <tr>
+
 <td
   style="
     padding:10px 0;
@@ -350,9 +360,11 @@ const bookingTemplate = ({
 >
   ${formattedTime}
 </td>
+
 </tr>
 
 <tr>
+
 <td
   style="
     padding:10px 0;
@@ -375,6 +387,7 @@ const bookingTemplate = ({
 >
   ${seats.join(", ")}
 </td>
+
 </tr>
 
 </table>
@@ -567,7 +580,7 @@ const bookingTemplate = ({
   font-size:11px;
   line-height:1.6;
 ">
-  This is an automated booking confirmation from CineFlow.
+  This is an automated booking confirmation from QuickBook.
   Please do not reply to this email.
 </p>
 
@@ -576,7 +589,7 @@ const bookingTemplate = ({
   color:#52525b;
   font-size:10px;
 ">
-  © ${new Date().getFullYear()} CineFlow
+  © ${new Date().getFullYear()} QuickBook
 </p>
 
 </td>
@@ -586,6 +599,7 @@ const bookingTemplate = ({
 
 </td>
 </tr>
+
 </table>
 
 </body>
@@ -593,7 +607,7 @@ const bookingTemplate = ({
 `,
 
     text: `
-CINEFLOW - BOOKING CONFIRMED
+QUICKBOOK - BOOKING CONFIRMED
 
 Hi ${userName},
 
