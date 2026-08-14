@@ -146,4 +146,48 @@ showRoutes.get("/shows/:showId/seats", userAuth, async (req, res) => {
     });
   }
 });
+
+/**
+ * DELETE /shows/:showId/seats/lock
+ * User: release their seat locks
+ */
+showRoutes.delete(
+  "/shows/:showId/seats/lock",
+  userAuth,
+  async (req, res) => {
+    try {
+      const { showId } = req.params;
+      const { seats } = req.body;
+
+      const userId = req.user._id;
+
+      if (!Array.isArray(seats) || seats.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Seats are required",
+        });
+      }
+
+      // Release only locks owned by this user
+      const result = await releaseSeatLocks({
+        showId,
+        userId: userId.toString(),
+        seatLabels: seats,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Seat locks released successfully",
+        data: result,
+      });
+    } catch (err) {
+      console.error("Release seat locks error:", err);
+
+      return res.status(500).json({
+        success: false,
+        message: err.message || "Failed to release seat locks",
+      });
+    }
+  }
+);
 module.exports = showRoutes ;

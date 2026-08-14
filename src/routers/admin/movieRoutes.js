@@ -578,7 +578,7 @@ movieRouter.get("/movies", adminAuth, async (req, res) => {
         .skip(skip)
         .limit(limit)
         .sort({ releaseDate: -1 })
-        .select("title releaseDate language genre status"),
+        .select("title releaseDate language genre status duration"),
 
       Movie.countDocuments(query),
     ]);
