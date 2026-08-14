@@ -41,7 +41,7 @@ movieRouter.get("/movies",userAuth , async (req, res) => {
 
       Movie.find(query)
         .select(
-          "title genres languages releaseDate rating posterUrl slug"
+          "title genres duration languages releaseDate rating posterUrl slug"
         )
         .sort({ releaseDate: -1 })
         .skip(skip)
