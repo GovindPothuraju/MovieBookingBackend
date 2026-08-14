@@ -115,7 +115,30 @@ const verifySeatLocks = async ({ showId, userId }) => {
   };
 };
 
+// when user click on go back currently locked seats are released and user can select other seats and other user can selected the currently relaes seats
+const releaseSeatLocks = async ({showId,seatLables,userId})=>{
+  const keysToDelate = [];
+  for(const seatLabel of seatLables){
+    const key = `seat_lock:${showId}:${seatLabel}`;
+
+    const lockedUser = await redisClient.get(key);
+
+    // Delete only if this user owns the lock
+    if (lockedUser === userId.toString()) {
+      keysToDelete.push(key);
+    }
+  }
+  if (keysToDelete.length > 0) {
+    await redisClient.del(...keysToDelete);
+  }
+
+  return {
+    released: keysToDelete.length,
+  };
+}
+
 module.exports = {
   lockSeats,
   verifySeatLocks,
+  releaseSeatLocks,
 };

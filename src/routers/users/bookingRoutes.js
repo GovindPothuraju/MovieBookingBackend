@@ -81,27 +81,66 @@ bookingRouter.post("/bookings/lock",  userAuth, async (req, res) => {
   }
 });
 
-/**
- * POST /payments/create-order
- * User: create a Razorpay order after verifying locked seats
- */
-
-/**
- * POST /payments/webhook
- * Razorpay: receive payment events, verify signature, update payment,
- * create booking, generate QR ticket, send email, and release Redis locks
- */
-
-/**
- * GET /payments/:paymentId
- * User: get payment status for a specific payment
- */
 
 /**
  * DELETE /bookings/lock
- * User: release previously locked seats (cancel/timeout)
+ * User: release their own Redis seat locks
  */
+bookingRouter.delete("/bookings/lock", userAuth, async (req, res) => {
+  try {
+    const { showId, seats } = req.body;
+    const userId = req.user._id.toString();
 
+    // Validate showId
+    if (!showId) {
+      return res.status(400).json({
+        success: false,
+        message: "Show ID is required.",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(showId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid show ID.",
+      });
+    }
+
+    // Validate seats
+    if (!Array.isArray(seats) || seats.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Seats are required.",
+      });
+    }
+
+    // Remove duplicate seats
+    const seatLabels = [...new Set(seats)];
+
+    // Release only this user's locks
+    const result = await releaseSeatLocks({
+      showId: showId.toString(),
+      seatLabels,
+      userId,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Seat locks released successfully.",
+      data: {
+        released: result.released,
+      },
+    });
+  } catch (err) {
+    console.error("Release seat locks error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message:
+        err.message || "Failed to release seat locks.",
+    });
+  }
+});
 
 /**
  * GET /bookings/me
