@@ -1,4 +1,3 @@
-const redisClient = require("../../config/redis");
 
 /* Algorithm
   Try locking every seat.
@@ -13,20 +12,18 @@ const redisClient = require("../../config/redis");
   EX 300 → Automatically expire after 5 minutes.
 */
 
-/**
- * Lock multiple seats atomically.
- * Rolls back previously acquired locks if any lock fails.
- */
+const redisClient = require("../../config/redis");
 
 const LOCK_TTL = 300;
 
 const lockSeats = async ({ showId, seatLabels, userId }) => {
   const lockedKeys = [];
-  // Moved outside try so catch can access it
   const bookingKey = `booking_lock:${userId}:${showId}`;
+
   try {
     for (const seatLabel of seatLabels) {
       const key = `seat_lock:${showId}:${seatLabel}`;
+
       const result = await redisClient.set(
         key,
         userId.toString(),
@@ -35,13 +32,12 @@ const lockSeats = async ({ showId, seatLabels, userId }) => {
           EX: LOCK_TTL,
         }
       );
+
       if (!result) {
-        // Rollback previously locked seats
         if (lockedKeys.length > 0) {
           await redisClient.del(...lockedKeys);
         }
 
-        // Remove booking lock if created
         await redisClient.del(bookingKey);
 
         return {
@@ -52,7 +48,7 @@ const lockSeats = async ({ showId, seatLabels, userId }) => {
 
       lockedKeys.push(key);
     }
-    // Store all locked seats for this user
+
     await redisClient.set(
       bookingKey,
       JSON.stringify(seatLabels),
@@ -60,6 +56,7 @@ const lockSeats = async ({ showId, seatLabels, userId }) => {
         EX: LOCK_TTL,
       }
     );
+
     return {
       success: true,
     };
@@ -67,17 +64,18 @@ const lockSeats = async ({ showId, seatLabels, userId }) => {
     if (lockedKeys.length > 0) {
       await redisClient.del(...lockedKeys);
     }
+
     await redisClient.del(bookingKey);
+
     throw err;
   }
 };
 
-/** Before creating a booking, verify that all the Redis locks still exist
- and belong to the logged-in user. */
 const verifySeatLocks = async ({ showId, userId }) => {
   const bookingKey = `booking_lock:${userId}:${showId}`;
-  // Get locked seats for this user
+
   const lockedSeats = await redisClient.get(bookingKey);
+
   if (!lockedSeats) {
     return {
       success: false,
@@ -85,8 +83,19 @@ const verifySeatLocks = async ({ showId, userId }) => {
       message: "Your seat lock has expired.",
     };
   }
-  const seatLabels = JSON.parse(lockedSeats);
-  // Verify every seat lock belongs to this user
+
+  let seatLabels;
+
+  try {
+    seatLabels = JSON.parse(lockedSeats);
+  } catch (err) {
+    return {
+      success: false,
+      status: 409,
+      message: "Invalid seat lock data.",
+    };
+  }
+
   for (const seatLabel of seatLabels) {
     const seatKey = `seat_lock:${showId}:${seatLabel}`;
 
@@ -115,30 +124,39 @@ const verifySeatLocks = async ({ showId, userId }) => {
   };
 };
 
-// when user click on go back currently locked seats are released and user can select other seats and other user can selected the currently relaes seats
-const releaseSeatLocks = async ({showId,seatLables,userId})=>{
-  const keysToDelate = [];
-  for(const seatLabel of seatLables){
+const releaseSeatLocks = async ({
+  showId,
+  seatLabels,
+  userId,
+}) => {
+  const keysToDelete = [];
+
+  for (const seatLabel of seatLabels) {
     const key = `seat_lock:${showId}:${seatLabel}`;
 
     const lockedUser = await redisClient.get(key);
 
-    // Delete only if this user owns the lock
     if (lockedUser === userId.toString()) {
       keysToDelete.push(key);
     }
   }
+
   if (keysToDelete.length > 0) {
     await redisClient.del(...keysToDelete);
   }
 
+  const bookingKey = `booking_lock:${userId}:${showId}`;
+
+  await redisClient.del(bookingKey);
+
   return {
     released: keysToDelete.length,
   };
-}
+};
 
 module.exports = {
   lockSeats,
   verifySeatLocks,
   releaseSeatLocks,
+  LOCK_TTL,
 };

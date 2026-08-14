@@ -14,7 +14,15 @@ const {
   validateCreateBookingRequest,
   validateBookingDetails,
 } = require("../../utils/users/bookingValidation");
-const { lockSeats ,verifySeatLocks} = require("../../utils/redis/seatLock");
+
+
+const {
+  lockSeats,
+  verifySeatLocks,
+  releaseSeatLocks,
+  LOCK_TTL,
+} = require("../../utils/redis/seatLock");
+
 /**
  * POST /bookings/lock
  * User: temporarily lock selected seats before payment (Redis)
@@ -70,7 +78,7 @@ bookingRouter.post("/bookings/lock",  userAuth, async (req, res) => {
     return res.status(200).json({
         success: true,
         message: "Seats locked successfully.",
-        expiresIn: 300
+        expiresIn: LOCK_TTL,
     });
 
   } catch (err) {
@@ -91,7 +99,6 @@ bookingRouter.delete("/bookings/lock", userAuth, async (req, res) => {
     const { showId, seats } = req.body;
     const userId = req.user._id.toString();
 
-    // Validate showId
     if (!showId) {
       return res.status(400).json({
         success: false,
@@ -106,7 +113,6 @@ bookingRouter.delete("/bookings/lock", userAuth, async (req, res) => {
       });
     }
 
-    // Validate seats
     if (!Array.isArray(seats) || seats.length === 0) {
       return res.status(400).json({
         success: false,
@@ -114,14 +120,15 @@ bookingRouter.delete("/bookings/lock", userAuth, async (req, res) => {
       });
     }
 
-    // Validate seat labels
     const seatLabels = [
       ...new Set(
-        seats.filter(
-          (seat) =>
-            typeof seat === "string" &&
-            seat.trim().length > 0
-        ).map((seat) => seat.trim())
+        seats
+          .filter(
+            (seat) =>
+              typeof seat === "string" &&
+              seat.trim().length > 0
+          )
+          .map((seat) => seat.trim())
       ),
     ];
 
@@ -132,7 +139,6 @@ bookingRouter.delete("/bookings/lock", userAuth, async (req, res) => {
       });
     }
 
-    // Release only locks owned by this user
     const result = await releaseSeatLocks({
       showId: showId.toString(),
       seatLabels,
