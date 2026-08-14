@@ -5,7 +5,6 @@ const mongoose = require("mongoose");
 const { userAuth } = require("../../middleware/userAuth");
 
 const Booking = require("../../models/bookingSchema");
-const redisClient = require("../../config/redis");
 
 const {
   validateLockSeatsRequest,
@@ -16,7 +15,6 @@ const {
 const {
   lockSeats,
   releaseSeatLocks,
-  releaseAllUserSeatLocks,
   LOCK_TTL,
 } = require("../../utils/redis/seatLock");
 
@@ -29,7 +27,7 @@ bookingRouter.post("/bookings/lock", userAuth, async (req, res) => {
     const { showId, seats } = req.body;
     const userId = req.user._id;
 
-    // Validate request
+    // 1. Validate request
     const error = validateLockSeatsRequest({
       showId,
       seats,
@@ -42,10 +40,17 @@ bookingRouter.post("/bookings/lock", userAuth, async (req, res) => {
       });
     }
 
-    // Extract seat IDs
+    // 2. Check duplicate seat IDs
     const seatIds = seats.map((seat) => seat._id);
 
-    // Validate show and seats
+    if (new Set(seatIds).size !== seatIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Duplicate seats are not allowed.",
+      });
+    }
+
+    // 3. Validate show and seats
     const validation = await validateShowAndSeats(
       showId,
       seatIds
@@ -63,7 +68,7 @@ bookingRouter.post("/bookings/lock", userAuth, async (req, res) => {
       seats: seatDocuments,
     } = validation;
 
-    // Check whether seats are already booked
+    // 4. Check already booked seats
     const bookedValidation = await validateBookedSeats(
       show._id,
       seatDocuments
@@ -76,39 +81,40 @@ bookingRouter.post("/bookings/lock", userAuth, async (req, res) => {
       });
     }
 
-    // Convert DB seats to labels
-    const seatLabels = seatDocuments.map(
-      (seat) => seat.seatLabel
-    );
-
-    // Remove duplicate seats
-    const uniqueSeatLabels = [
-      ...new Set(seatLabels),
+    // 5. Convert to unique seat labels
+    const seatLabels = [
+      ...new Set(
+        seatDocuments.map(
+          (seat) => seat.seatLabel
+        )
+      ),
     ];
 
-    // Lock seats atomically in Redis
+    // 6. Lock seats in Redis
     const redisLock = await lockSeats({
       showId: show._id.toString(),
-      seatLabels: uniqueSeatLabels,
+      seatLabels,
       userId: userId.toString(),
     });
 
+    // 7. Redis lock failed
     if (!redisLock.success) {
       return res.status(409).json({
         success: false,
         message:
           redisLock.message ||
           `Seat ${redisLock.seat} was just selected by another user.`,
-        seat: redisLock.seat,
+        seat: redisLock.seat || null,
       });
     }
 
+    // 8. Success
     return res.status(200).json({
       success: true,
       message: "Seats locked successfully.",
       data: {
         showId: show._id,
-        seats: uniqueSeatLabels,
+        seats: seatLabels,
         expiresIn: LOCK_TTL,
       },
     });
@@ -117,67 +123,72 @@ bookingRouter.post("/bookings/lock", userAuth, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: err.message || "Failed to lock seats",
+      message:
+        err.message || "Failed to lock seats.",
     });
   }
 });
 
 /**
  * DELETE /bookings/lock
- * User: release their own temporarily locked seats
+ * User: release their temporarily locked seats
  */
-bookingRouter.delete(
-  "/bookings/lock",
-  userAuth,
-  async (req, res) => {
+bookingRouter.delete("/bookings/lock", userAuth, async (req, res) => {
     try {
       const { showId, seats } = req.body;
       const userId = req.user._id;
 
+      // 1. Validate show ID
       if (!showId) {
         return res.status(400).json({
           success: false,
-          message: "Show ID is required",
+          message: "Show ID is required.",
         });
       }
 
+      if (
+        !mongoose.Types.ObjectId.isValid(showId)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid show ID.",
+        });
+      }
+
+      // 2. Validate seats
       if (
         !Array.isArray(seats) ||
         seats.length === 0
       ) {
         return res.status(400).json({
           success: false,
-          message: "Seats are required",
+          message: "Seats are required.",
         });
       }
 
-      // Validate showId
-      if (!mongoose.Types.ObjectId.isValid(showId)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid show ID",
-        });
-      }
+      // 3. Extract seat labels
+      const seatLabels = [
+        ...new Set(
+          seats
+            .map((seat) => {
+              if (typeof seat === "string") {
+                return seat;
+              }
 
-      // Extract seat labels
-      const seatLabels = seats
-        .map((seat) => {
-          if (typeof seat === "string") {
-            return seat;
-          }
-
-          return seat.seatLabel;
-        })
-        .filter(Boolean);
+              return seat?.seatLabel;
+            })
+            .filter(Boolean)
+        ),
+      ];
 
       if (seatLabels.length === 0) {
         return res.status(400).json({
           success: false,
-          message: "Valid seat labels are required",
+          message: "Valid seat labels are required.",
         });
       }
 
-      // Release only user's own locks
+      // 4. Release only locks owned by this user
       const result = await releaseSeatLocks({
         showId,
         seatLabels,
@@ -186,64 +197,14 @@ bookingRouter.delete(
 
       return res.status(200).json({
         success: true,
-        message: "Seat locks released successfully",
-        data: {
-          released: result.released,
-        },
-      });
-    } catch (err) {
-      console.error("Release seat lock error:", err);
-
-      return res.status(500).json({
-        success: false,
-        message:
-          err.message || "Failed to release seat locks",
-      });
-    }
-  }
-);
-
-/**
- * DELETE /bookings/lock/all
- * User: release all their locks for a show
- */
-bookingRouter.delete(
-  "/bookings/lock/all",
-  userAuth,
-  async (req, res) => {
-    try {
-      const { showId } = req.body;
-      const userId = req.user._id;
-
-      if (!showId) {
-        return res.status(400).json({
-          success: false,
-          message: "Show ID is required",
-        });
-      }
-
-      if (!mongoose.Types.ObjectId.isValid(showId)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid show ID",
-        });
-      }
-
-      const result = await releaseAllUserSeatLocks({
-        showId,
-        userId: userId.toString(),
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: "All seat locks released successfully",
+        message: "Seat locks released successfully.",
         data: {
           released: result.released,
         },
       });
     } catch (err) {
       console.error(
-        "Release all seat locks error:",
+        "Release seat locks error:",
         err
       );
 
@@ -251,7 +212,7 @@ bookingRouter.delete(
         success: false,
         message:
           err.message ||
-          "Failed to release all seat locks",
+          "Failed to release seat locks.",
       });
     }
   }
@@ -281,13 +242,16 @@ bookingRouter.get(
         data: bookings,
       });
     } catch (err) {
-      console.error("Get my bookings error:", err);
+      console.error(
+        "Get user bookings error:",
+        err
+      );
 
       return res.status(500).json({
         success: false,
         message:
           err.message ||
-          "Failed to fetch bookings",
+          "Failed to fetch bookings.",
       });
     }
   }
@@ -304,9 +268,11 @@ bookingRouter.get(
     try {
       const { bookingId } = req.params;
 
-      // Validate MongoDB ObjectId
+      // 1. Validate booking ID
       if (
-        !mongoose.Types.ObjectId.isValid(bookingId)
+        !mongoose.Types.ObjectId.isValid(
+          bookingId
+        )
       ) {
         return res.status(400).json({
           success: false,
@@ -314,6 +280,7 @@ bookingRouter.get(
         });
       }
 
+      // 2. Find only user's booking
       const booking = await Booking.findOne({
         _id: bookingId,
         userId: req.user._id,
@@ -324,6 +291,7 @@ bookingRouter.get(
         .populate("showId", "showTime")
         .lean();
 
+      // 3. Booking not found
       if (!booking) {
         return res.status(404).json({
           success: false,
@@ -346,7 +314,7 @@ bookingRouter.get(
         success: false,
         message:
           err.message ||
-          "Failed to fetch booking",
+          "Failed to fetch booking.",
       });
     }
   }
