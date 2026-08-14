@@ -164,7 +164,7 @@ const createBooking = async ({ payment }) => {
       Screen.findById(show.screenId),
     ]);
     const emailTemplate = bookingTemplate({
-      userName: user.firstName,
+      userName: user.name,
       bookingId: booking[0].bookingId,
       movieName: movie.title,
       theaterName: theater.name,
@@ -187,14 +187,13 @@ const createBooking = async ({ payment }) => {
     }
     // 9. Release Redis Locks
 
+    for (const seatLabel of seatLabels) {
+      const seatKey = `seat_lock:${showId}:${seatLabel}`;
+
+      await redisClient.del(seatKey);
+    }
+
     const bookingKey = `booking_lock:${userId}:${showId}`;
-
-    const seatKeys = seatLabels.map(
-      (seat) =>
-        `seat_lock:${showId}:${seat}`
-    );
-
-    await redisClient.del(...seatKeys);
 
     await redisClient.del(bookingKey);
 
