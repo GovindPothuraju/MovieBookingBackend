@@ -68,9 +68,8 @@ const bookingRouter = require("./routers/users/bookingRoutes");
 const paymentRouter = require("./routers/users/paymentRouter")
 // theater routes
 const theaterRequestRouter = require("./routers/admin/theaterRequests");
-
 const theaterAdminAuthRouter=require("./routers/theaterAdmin/theaterAdminAuth");
-
+const theaterRouter=require("./routers/theaterAdmin/theater");
 
 
 // Admin routes
@@ -94,6 +93,7 @@ app.use("/user", paymentRouter);
 // theater admin router
 app.use("/api",theaterRequestRouter);
 app.use("/api",theaterAdminAuthRouter);
+app.use("/api",theaterRouter);
 
 // Health check
 app.get("/healthz", (req, res) => {
