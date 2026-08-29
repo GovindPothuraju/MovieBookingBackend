@@ -7,7 +7,7 @@ const Screen=require("../../models/admin/screenModel");
 const Theater=require("../../models/admin/theaterModel");
 const theaterAdminAuth=require("../../middleware/theaterAdminAuth");
 
-const SCREEN_TYPES=["STANDARD","IMAX","DOLBY","DOLBY_ATMOS","4DX","MX4D","OTHER"];
+const SCREEN_TYPES=["IMAX","4DX","2D","3D"];
 
 
 // 1. Create Screen - Theater Admin
@@ -26,7 +26,7 @@ screenRouter.post("/theater-admin/screens",theaterAdminAuth,async(req,res)=>{
     }
 
     // 3. Get request data
-    const {name,screenType,totalSeats}=req.body;
+    const {name,screenType,rows,columns}=req.body;
 
     // 4. Validate screen name
     if(typeof name!=="string"||!name.trim()){
@@ -55,17 +55,37 @@ screenRouter.post("/theater-admin/screens",theaterAdminAuth,async(req,res)=>{
       });
     }
 
-    // 8. Validate total seats
-    const seats=Number(totalSeats);
+    // 8. Validate rows
+    const screenRows=Number(rows);
 
-    if(!Number.isInteger(seats)||seats<1||seats>1000){
+    if(!Number.isInteger(screenRows)||screenRows<1||screenRows>26){
       return res.status(400).json({
         success:false,
-        message:"Total seats must be an integer between 1 and 1000"
+        message:"Rows must be an integer between 1 and 26"
       });
     }
 
-    // 9. Check theater
+    // 9. Validate columns
+    const screenColumns=Number(columns);
+
+    if(!Number.isInteger(screenColumns)||screenColumns<1){
+      return res.status(400).json({
+        success:false,
+        message:"Columns must be a positive integer"
+      });
+    }
+
+    // 10. Validate total seats
+    const totalSeats=screenRows*screenColumns;
+
+    if(totalSeats>500){
+      return res.status(400).json({
+        success:false,
+        message:"Total seats cannot exceed 500"
+      });
+    }
+
+    // 11. Check theater
     const theater=await Theater.findById(theaterId).select("_id name isActive");
 
     if(!theater){
@@ -75,7 +95,7 @@ screenRouter.post("/theater-admin/screens",theaterAdminAuth,async(req,res)=>{
       });
     }
 
-    // 10. Check theater status
+    // 12. Check theater status
     if(!theater.isActive){
       return res.status(403).json({
         success:false,
@@ -83,7 +103,7 @@ screenRouter.post("/theater-admin/screens",theaterAdminAuth,async(req,res)=>{
       });
     }
 
-    // 11. Check duplicate active screen
+    // 13. Check duplicate active screen
     const existingScreen=await Screen.findOne({
       theaterId,
       name:normalizedName,
@@ -97,16 +117,18 @@ screenRouter.post("/theater-admin/screens",theaterAdminAuth,async(req,res)=>{
       });
     }
 
-    // 12. Create screen
+    // 14. Create screen
     const screen=await Screen.create({
       theaterId,
       name:normalizedName,
       screenType,
-      totalSeats:seats,
+      rows:screenRows,
+      columns:screenColumns,
+      totalSeats,
       isActive:true
     });
 
-    // 13. Response
+    // 15. Response
     return res.status(201).json({
       success:true,
       message:"Screen created successfully",
@@ -169,7 +191,7 @@ screenRouter.get("/theater-admin/screens",theaterAdminAuth,async(req,res)=>{
       theaterId,
       isActive:true
     })
-    .select("_id name screenType totalSeats isActive createdAt updatedAt")
+    .select("_id name screenType rows columns totalSeats isActive seatsGenerated createdAt updatedAt")
     .sort({createdAt:-1})
     .lean();
 
@@ -259,10 +281,10 @@ screenRouter.patch("/theater-admin/screens/:screenId",theaterAdminAuth,async(req
     }
 
     // 3. Get request data
-    const {name,screenType,totalSeats}=req.body;
+    const {name,screenType,rows,columns}=req.body;
 
     // 4. Prevent empty update
-    if(name===undefined&&screenType===undefined&&totalSeats===undefined){
+    if(name===undefined&&screenType===undefined&&rows===undefined&&columns===undefined){
       return res.status(400).json({
         success:false,
         message:"At least one field is required for update"
@@ -301,7 +323,15 @@ screenRouter.patch("/theater-admin/screens/:screenId",theaterAdminAuth,async(req
       });
     }
 
-    // 8. Update name
+    // 8. Prevent layout change after seats are generated
+    if(screen.seatsGenerated&&(rows!==undefined||columns!==undefined)){
+      return res.status(409).json({
+        success:false,
+        message:"Rows and columns cannot be changed after seats are generated"
+      });
+    }
+
+    // 9. Update name
     if(name!==undefined){
 
       if(typeof name!=="string"||!name.trim()){
@@ -337,7 +367,7 @@ screenRouter.patch("/theater-admin/screens/:screenId",theaterAdminAuth,async(req
       screen.name=normalizedName;
     }
 
-    // 9. Update screen type
+    // 10. Update screen type
     if(screenType!==undefined){
 
       if(!SCREEN_TYPES.includes(screenType)){
@@ -350,25 +380,55 @@ screenRouter.patch("/theater-admin/screens/:screenId",theaterAdminAuth,async(req
       screen.screenType=screenType;
     }
 
-    // 10. Update seats
-    if(totalSeats!==undefined){
+    // 11. Update rows
+    if(rows!==undefined){
 
-      const seats=Number(totalSeats);
+      const screenRows=Number(rows);
 
-      if(!Number.isInteger(seats)||seats<1||seats>1000){
+      if(!Number.isInteger(screenRows)||screenRows<1||screenRows>26){
         return res.status(400).json({
           success:false,
-          message:"Total seats must be an integer between 1 and 1000"
+          message:"Rows must be an integer between 1 and 26"
         });
       }
 
-      screen.totalSeats=seats;
+      screen.rows=screenRows;
     }
 
-    // 11. Save
+    // 12. Update columns
+    if(columns!==undefined){
+
+      const screenColumns=Number(columns);
+
+      if(!Number.isInteger(screenColumns)||screenColumns<1){
+        return res.status(400).json({
+          success:false,
+          message:"Columns must be a positive integer"
+        });
+      }
+
+      screen.columns=screenColumns;
+    }
+
+    // 13. Validate total seats
+    if(rows!==undefined||columns!==undefined){
+
+      const totalSeats=screen.rows*screen.columns;
+
+      if(totalSeats>500){
+        return res.status(400).json({
+          success:false,
+          message:"Total seats cannot exceed 500"
+        });
+      }
+
+      screen.totalSeats=totalSeats;
+    }
+
+    // 14. Save
     await screen.save();
 
-    // 12. Response
+    // 15. Response
     return res.status(200).json({
       success:true,
       message:"Screen updated successfully",
@@ -431,12 +491,20 @@ screenRouter.delete("/theater-admin/screens/:screenId",theaterAdminAuth,async(re
       });
     }
 
-    // 4. Soft delete screen
+    // 4. Prevent deletion if seats are generated
+    if(screen.seatsGenerated){
+      return res.status(409).json({
+        success:false,
+        message:"Screen cannot be deleted after seats are generated"
+      });
+    }
+
+    // 5. Soft delete screen
     screen.isActive=false;
 
     await screen.save();
 
-    // 5. Response
+    // 6. Response
     return res.status(200).json({
       success:true,
       message:"Screen deleted successfully"
