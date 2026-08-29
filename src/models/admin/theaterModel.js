@@ -25,9 +25,10 @@ const theaterSchema = new mongoose.Schema(
       maxlength: [60, 'City name cannot exceed 60 characters'],
     },
     address: {
-      street: { type: String, trim: true },
-      state: { type: String, trim: true },
-      pincode: { type: String, trim: true, match: [/^\d{6}$/, 'Invalid pincode'] },
+       type:String,
+        required:true,
+        trim:true,
+        maxlength:300
     },
     contactEmail: {
       type: String,
@@ -40,11 +41,11 @@ const theaterSchema = new mongoose.Schema(
       trim: true,
       match: [/^\d{10}$/, 'Phone must be 10 digits'],
     },
-    amenities: [
+    amenities:[
       {
-        type: String,
-        enum: ["PARKING","FOOD COURT","WHEELCHAIR ACCESSIBLE","AC","DOLBY ATOMS","IMAX","ONLINE BOOKING","WIFI"]
-      },
+        type:String,
+        enum:["PARKING","FOOD COURT","WHEELCHAIR ACCESSIBLE","AC","DOLBY ATMOS","IMAX","ONLINE BOOKING","WIFI"]
+      }
     ],
     isActive: {
       type: Boolean,

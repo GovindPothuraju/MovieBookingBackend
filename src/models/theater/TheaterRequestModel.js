@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 
-const THEATER_AMENITIES = ["PARKING","FOOD COURT","WHEELCHAIR ACCESSIBLE","AC","DOLBY ATOMS","IMAX","ONLINE BOOKING","WIFI"]
+const THEATER_AMENITIES=["PARKING","FOOD COURT","WHEELCHAIR ACCESSIBLE","AC","DOLBY ATMOS","IMAX","ONLINE BOOKING","WIFI"];
+
 
 const theaterRequestSchema = new mongoose.Schema(
   {

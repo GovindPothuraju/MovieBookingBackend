@@ -7,7 +7,6 @@ const crypto = require("crypto");
 const adminAuth = require("../../middleware/adminAuth");
 
 const TheaterRequest = require("../../models/theater/TheaterRequestModel");
-console.log("TheaterRequest fields:", Object.keys(TheaterRequest.schema.paths));
 const Theater = require("../../models/admin/theaterModel");
 const TheaterAdmin = require("../../models/theater/TheaterAdmin");
 
