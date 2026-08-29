@@ -18,6 +18,7 @@ const  redisClient  = require("./config/redis");
 // Middleware
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://localhost:5174",
   "https://cineflow-booking-admin-panel.vercel.app",
   "https://quickbook-eosin.vercel.app",
   "https://quickbook.dpdns.org"
@@ -68,6 +69,9 @@ const paymentRouter = require("./routers/users/paymentRouter")
 // theater routes
 const theaterRequestRouter = require("./routers/admin/theaterRequests");
 
+const theaterAdminAuthRouter=require("./routers/theaterAdmin/theaterAdminAuth");
+
+
 
 // Admin routes
 app.use("/", adminRoutes);
@@ -89,7 +93,7 @@ app.use("/user", paymentRouter);
 
 // theater admin router
 app.use("/api",theaterRequestRouter);
-
+app.use("/api",theaterAdminAuthRouter);
 
 // Health check
 app.get("/healthz", (req, res) => {
