@@ -10,21 +10,7 @@ app.set("trust proxy", 1);
 
 const connectDB = require("./config/databse");
 
-// Admin Routes
-const adminRoutes = require("./routers/admin/adminRoutes");
-const theaterRoutes = require("./routers/admin/theaterRouter");
-const screenRoutes = require("./routers/admin/screenRoutes");
-const seatRoutes = require("./routers/admin/seatRoutes");
-const movieRoutes = require("./routers/admin/movieRoutes");
-const showRoutes = require("./routers/admin/showRoutes");
-const bookingRoutes = require("./routers/admin/bookingRoutes");
-const dashboardRoutes = require("./routers/admin/dashboardRoutes")
-// User Routes
-const userRoutes = require("./routers/users/userRoutes");
-const userMovieRoutes = require("./routers/users/movieRoutes");
-const userShowRoutes = require("./routers/users/showRoutes");
-const bookingRouter = require("./routers/users/bookingRoutes");
-const paymentRouter = require("./routers/users/paymentRouter")
+
 
 // Redis Import from config-redis
 const  redisClient  = require("./config/redis");
@@ -64,6 +50,23 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
+// Admin Routes
+const adminRoutes = require("./routers/admin/adminRoutes");
+const theaterRoutes = require("./routers/admin/theaterRouter");
+const screenRoutes = require("./routers/admin/screenRoutes");
+const seatRoutes = require("./routers/admin/seatRoutes");
+const movieRoutes = require("./routers/admin/movieRoutes");
+const showRoutes = require("./routers/admin/showRoutes");
+const bookingRoutes = require("./routers/admin/bookingRoutes");
+const dashboardRoutes = require("./routers/admin/dashboardRoutes")
+// User Routes
+const userRoutes = require("./routers/users/userRoutes");
+const userMovieRoutes = require("./routers/users/movieRoutes");
+const userShowRoutes = require("./routers/users/showRoutes");
+const bookingRouter = require("./routers/users/bookingRoutes");
+const paymentRouter = require("./routers/users/paymentRouter")
+// theater routes
+const theaterRequestRouter = require("./routers/admin/theaterRequests");
 
 
 // Admin routes
@@ -83,6 +86,9 @@ app.use("/user", userMovieRoutes);
 app.use("/user", userShowRoutes);
 app.use("/user", bookingRouter);
 app.use("/user", paymentRouter);
+
+// theater admin router
+app.use("/api",theaterRequestRouter);
 
 
 // Health check

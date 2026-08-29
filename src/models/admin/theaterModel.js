@@ -1,7 +1,15 @@
 const mongoose = require('mongoose');
 
+
 const theaterSchema = new mongoose.Schema(
   {
+    adminId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TheaterAdmin",
+      default: null,
+      unique: true,
+      sparse: true
+    },
     name: {
       type: String,
       required: [true, 'Theater name is required'],
