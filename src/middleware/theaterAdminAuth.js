@@ -14,7 +14,7 @@ const theaterAdminAuth=async(req,res,next)=>{
 
     const decoded=jwt.verify(token,process.env.JWT_SECRET);
 
-    if(decoded.role!=="THEATER_ADMIN"){
+    if(decoded.type!=="THEATER_ADMIN"){
       return res.status(403).json({
         success:false,
         message:"Theater Admin access required"

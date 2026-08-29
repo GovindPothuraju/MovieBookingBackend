@@ -506,4 +506,5 @@ theaterAdminAuthRouter.post("/theater-admin/change-password",theaterAdminAuth,as
   }
 });
 
+
 module.exports=theaterAdminAuthRouter;
