@@ -303,15 +303,15 @@ theaterRequestRouter.post("/admin/theater-requests/:requestId/approve", adminAut
         subject: "Your Theater Admin Account",
         text: `Hello ${emailData.name},
 
-Your Theater Admin account has been approved.
+      Your Theater Admin account has been approved.
 
-Login Email: ${emailData.email}
-Temporary Password: ${emailData.password}
+      Login Email: ${emailData.email}
+      Temporary Password: ${emailData.password}
 
-Please login and change your password immediately.
+      Please login and change your password immediately.
 
-Regards,
-Admin Team`,
+      Regards,
+      Admin Team`,
         html: getTheaterAdminCredentialsTemplate(emailData)
       });
 
