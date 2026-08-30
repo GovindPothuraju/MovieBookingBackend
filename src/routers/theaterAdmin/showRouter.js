@@ -61,12 +61,12 @@ showRouter.get("/theater-admin/movies", theaterAdminAuth, async (req, res) => {
  */
 showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
   try {
-    const theaterId = req.user.theaterId;
-    console.log(theaterId);
+    const theaterId = req.theaterAdmin.theaterId;
+
     if (!theaterId || !mongoose.Types.ObjectId.isValid(theaterId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid theater assigned to admin",
+        message: "Invalid theater assigned to admin"
       });
     }
 
@@ -75,7 +75,7 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
     if (error) {
       return res.status(400).json({
         success: false,
-        message: error,
+        message: error
       });
     }
 
@@ -86,14 +86,14 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
     if (!theater) {
       return res.status(404).json({
         success: false,
-        message: "Theater not found",
+        message: "Theater not found"
       });
     }
 
     if (!theater.isActive) {
       return res.status(400).json({
         success: false,
-        message: "Theater is inactive",
+        message: "Theater is inactive"
       });
     }
 
@@ -102,21 +102,21 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
     if (!movie) {
       return res.status(404).json({
         success: false,
-        message: "Movie not found",
+        message: "Movie not found"
       });
     }
 
     if (!movie.isActive) {
       return res.status(400).json({
         success: false,
-        message: "Movie is inactive",
+        message: "Movie is inactive"
       });
     }
 
     if (movie.status === "ARCHIVED") {
       return res.status(400).json({
         success: false,
-        message: "Cannot create show for archived movie",
+        message: "Cannot create show for archived movie"
       });
     }
 
@@ -125,34 +125,34 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
     if (newShowStart < new Date(movie.releaseDate)) {
       return res.status(400).json({
         success: false,
-        message: "Show cannot be scheduled before movie release date",
+        message: "Show cannot be scheduled before movie release date"
       });
     }
 
     if (newShowStart <= new Date()) {
       return res.status(400).json({
         success: false,
-        message: "Cannot create show in the past",
+        message: "Cannot create show in the past"
       });
     }
 
     const screen = await Screen.findOne({
       _id: screenId,
       theaterId,
-      isActive: true,
+      isActive: true
     });
 
     if (!screen) {
       return res.status(404).json({
         success: false,
-        message: "Screen not found in your theater",
+        message: "Screen not found in your theater"
       });
     }
 
     if (!screen.seatsGenerated) {
       return res.status(400).json({
         success: false,
-        message: "Seat layout is not generated for this screen",
+        message: "Seat layout is not generated for this screen"
       });
     }
 
@@ -160,12 +160,13 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
 
     const newShowEnd = new Date(
       newShowStart.getTime() +
-        (movie.duration + BUFFER_TIME) * 60 * 1000
+      (movie.duration + BUFFER_TIME) * 60 * 1000
     );
 
     const existingShows = await Show.find({
+      theaterId,
       screenId,
-      status: "SCHEDULED",
+      status: "SCHEDULED"
     }).populate("movieId", "duration");
 
     for (const existingShow of existingShows) {
@@ -175,7 +176,7 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
 
       const existingEnd = new Date(
         existingStart.getTime() +
-          (existingShow.movieId.duration + BUFFER_TIME) * 60 * 1000
+        (existingShow.movieId.duration + BUFFER_TIME) * 60 * 1000
       );
 
       const isOverlap =
@@ -185,7 +186,7 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       if (isOverlap) {
         return res.status(409).json({
           success: false,
-          message: `Screen is already occupied between ${existingStart.toLocaleString()} and ${existingEnd.toLocaleString()}`,
+          message: `Screen is already occupied between ${existingStart.toLocaleString()} and ${existingEnd.toLocaleString()}`
         });
       }
     }
@@ -194,21 +195,21 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       {
         $match: {
           screenId: new mongoose.Types.ObjectId(screenId),
-          isActive: true,
-        },
+          isActive: true
+        }
       },
       {
         $group: {
           _id: "$category",
-          totalSeats: { $sum: 1 },
-        },
-      },
+          totalSeats: { $sum: 1 }
+        }
+      }
     ]);
 
     if (!seatCounts.length) {
       return res.status(400).json({
         success: false,
-        message: "No seats found for this screen",
+        message: "No seats found for this screen"
       });
     }
 
@@ -222,7 +223,7 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       if (!(category in priceMap)) {
         return res.status(400).json({
           success: false,
-          message: `Price missing for category ${category}`,
+          message: `Price missing for category ${category}`
         });
       }
 
@@ -231,7 +232,7 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       if (!Number.isFinite(price) || price <= 0) {
         return res.status(400).json({
           success: false,
-          message: `Invalid price for category ${category}`,
+          message: `Invalid price for category ${category}`
         });
       }
     }
@@ -240,7 +241,7 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       if (!(category in seatCountMap)) {
         return res.status(400).json({
           success: false,
-          message: `Category ${category} does not exist in this screen`,
+          message: `Category ${category} does not exist in this screen`
         });
       }
     }
@@ -251,7 +252,7 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       finalPriceMap[category] = {
         price: Number(priceMap[category]),
         totalSeats: seatCountMap[category],
-        availableSeats: seatCountMap[category],
+        availableSeats: seatCountMap[category]
       };
     }
 
@@ -260,20 +261,20 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       theaterId,
       screenId,
       showTime: newShowStart,
-      priceMap: finalPriceMap,
+      priceMap: finalPriceMap
     });
 
     return res.status(201).json({
       success: true,
       message: "Show created successfully",
-      data: newShow,
+      data: newShow
     });
   } catch (err) {
     console.error("Theater Admin Create Show Error:", err);
 
     return res.status(500).json({
       success: false,
-      message: err.message || "Failed to create show",
+      message: err.message || "Failed to create show"
     });
   }
 });
@@ -284,7 +285,14 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
  */
 showRouter.get("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
   try {
-    const theaterId = req.user.theaterId;
+    const theaterId = req.theaterAdmin.theaterId;
+
+    if (!theaterId || !mongoose.Types.ObjectId.isValid(theaterId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid theater assigned to admin"
+      });
+    }
 
     let {
       page = 1,
@@ -292,7 +300,7 @@ showRouter.get("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       movieId,
       screenId,
       date,
-      status,
+      status
     } = req.query;
 
     page = Math.max(1, parseInt(page) || 1);
@@ -304,7 +312,7 @@ showRouter.get("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       if (!mongoose.Types.ObjectId.isValid(movieId)) {
         return res.status(400).json({
           success: false,
-          message: "Invalid movie ID",
+          message: "Invalid movie ID"
         });
       }
 
@@ -315,7 +323,7 @@ showRouter.get("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       if (!mongoose.Types.ObjectId.isValid(screenId)) {
         return res.status(400).json({
           success: false,
-          message: "Invalid screen ID",
+          message: "Invalid screen ID"
         });
       }
 
@@ -328,7 +336,7 @@ showRouter.get("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       if (isNaN(startDate.getTime())) {
         return res.status(400).json({
           success: false,
-          message: "Invalid date",
+          message: "Invalid date"
         });
       }
 
@@ -337,7 +345,7 @@ showRouter.get("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
 
       filter.showTime = {
         $gte: startDate,
-        $lt: endDate,
+        $lt: endDate
       };
     }
 
@@ -345,13 +353,13 @@ showRouter.get("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       "SCHEDULED",
       "RUNNING",
       "COMPLETED",
-      "CANCELLED",
+      "CANCELLED"
     ];
 
     if (status && !allowedStatus.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status",
+        message: "Invalid status"
       });
     }
 
@@ -370,7 +378,7 @@ showRouter.get("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
 
     let updatedShows = shows.map((show) => ({
       ...show,
-      status: getShowStatus(show),
+      status: getShowStatus(show)
     }));
 
     if (status) {
@@ -398,19 +406,18 @@ showRouter.get("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
         totalPages,
         limit,
         hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-      },
+        hasPrevPage: page > 1
+      }
     });
   } catch (err) {
     console.error("Theater Admin Get Shows Error:", err);
 
     return res.status(500).json({
       success: false,
-      message: err.message || "Failed to get shows",
+      message: err.message || "Failed to get shows"
     });
   }
 });
-
 /**
  * GET /theater-admin/shows/:id
  * Theater Admin: get one of his shows
@@ -418,32 +425,33 @@ showRouter.get("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
 showRouter.get("/theater-admin/shows/:id", theaterAdminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const theaterId = req.user.theaterId;
+    const theaterId = req.theaterAdmin.theaterId;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid show ID",
+        message: "Invalid show ID"
+      });
+    }
+
+    if (!theaterId) {
+      return res.status(403).json({
+        success: false,
+        message: "No theater assigned to this admin"
       });
     }
 
     const show = await Show.findOne({
       _id: id,
-      theaterId,
+      theaterId
     })
-      .populate(
-        "movieId",
-        "title duration posterUrl releaseDate status"
-      )
-      .populate(
-        "screenId",
-        "name screenType totalSeats"
-      );
+      .populate("movieId", "title duration posterUrl releaseDate status")
+      .populate("screenId", "name screenType totalSeats");
 
     if (!show) {
       return res.status(404).json({
         success: false,
-        message: "Show not found",
+        message: "Show not found"
       });
     }
 
@@ -453,14 +461,14 @@ showRouter.get("/theater-admin/shows/:id", theaterAdminAuth, async (req, res) =>
     return res.status(200).json({
       success: true,
       message: "Show details fetched successfully",
-      data: showObj,
+      data: showObj
     });
   } catch (err) {
     console.error("Theater Admin Get Show Error:", err);
 
     return res.status(500).json({
       success: false,
-      message: err.message || "Failed to get show",
+      message: err.message || "Failed to get show"
     });
   }
 });
@@ -472,31 +480,45 @@ showRouter.get("/theater-admin/shows/:id", theaterAdminAuth, async (req, res) =>
 showRouter.patch("/theater-admin/shows/:id", theaterAdminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const theaterId = req.user.theaterId;
+    const theaterId = req.theaterAdmin.theaterId;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid show ID",
+        message: "Invalid show ID"
+      });
+    }
+
+    if (!theaterId) {
+      return res.status(403).json({
+        success: false,
+        message: "No theater assigned to this admin"
       });
     }
 
     const show = await Show.findOne({
       _id: id,
-      theaterId,
+      theaterId
     });
 
     if (!show) {
       return res.status(404).json({
         success: false,
-        message: "Show not found",
+        message: "Show not found"
       });
     }
 
     if (new Date(show.showTime) <= new Date()) {
       return res.status(400).json({
         success: false,
-        message: "Cannot update show after it has started",
+        message: "Cannot update show after it has started"
+      });
+    }
+
+    if (show.status === "CANCELLED") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot update a cancelled show"
       });
     }
 
@@ -505,7 +527,7 @@ showRouter.patch("/theater-admin/shows/:id", theaterAdminAuth, async (req, res) 
     if (error) {
       return res.status(400).json({
         success: false,
-        message: error,
+        message: error
       });
     }
 
@@ -514,21 +536,21 @@ showRouter.patch("/theater-admin/shows/:id", theaterAdminAuth, async (req, res) 
         {
           $match: {
             screenId: new mongoose.Types.ObjectId(show.screenId),
-            isActive: true,
-          },
+            isActive: true
+          }
         },
         {
           $group: {
             _id: "$category",
-            totalSeats: { $sum: 1 },
-          },
-        },
+            totalSeats: { $sum: 1 }
+          }
+        }
       ]);
 
       if (!seatCounts.length) {
         return res.status(400).json({
           success: false,
-          message: "No seats found for this screen",
+          message: "No seats found for this screen"
         });
       }
 
@@ -542,7 +564,7 @@ showRouter.patch("/theater-admin/shows/:id", theaterAdminAuth, async (req, res) 
         if (!(category in value.priceMap)) {
           return res.status(400).json({
             success: false,
-            message: `Price missing for category ${category}`,
+            message: `Price missing for category ${category}`
           });
         }
 
@@ -551,7 +573,7 @@ showRouter.patch("/theater-admin/shows/:id", theaterAdminAuth, async (req, res) 
         if (!Number.isFinite(price) || price <= 0) {
           return res.status(400).json({
             success: false,
-            message: `Invalid price for category ${category}`,
+            message: `Invalid price for category ${category}`
           });
         }
       }
@@ -560,7 +582,7 @@ showRouter.patch("/theater-admin/shows/:id", theaterAdminAuth, async (req, res) 
         if (!(category in seatCountMap)) {
           return res.status(400).json({
             success: false,
-            message: `Category ${category} does not exist in this screen`,
+            message: `Category ${category} does not exist in this screen`
           });
         }
       }
@@ -573,7 +595,7 @@ showRouter.patch("/theater-admin/shows/:id", theaterAdminAuth, async (req, res) 
           totalSeats: seatCountMap[category],
           availableSeats:
             show.priceMap?.[category]?.availableSeats ??
-            seatCountMap[category],
+            seatCountMap[category]
         };
       }
 
@@ -588,14 +610,14 @@ showRouter.patch("/theater-admin/shows/:id", theaterAdminAuth, async (req, res) 
     return res.status(200).json({
       success: true,
       message: "Show updated successfully",
-      data: showObj,
+      data: showObj
     });
   } catch (err) {
     console.error("Theater Admin Update Show Error:", err);
 
     return res.status(500).json({
       success: false,
-      message: err.message || "Failed to update show",
+      message: err.message || "Failed to update show"
     });
   }
 });
@@ -604,71 +626,75 @@ showRouter.patch("/theater-admin/shows/:id", theaterAdminAuth, async (req, res) 
  * PATCH /theater-admin/shows/:id/status
  * Theater Admin: cancel his show
  */
-showRouter.patch(
-  "/theater-admin/shows/:id/status",
-  theaterAdminAuth,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const theaterId = req.user.theaterId;
+showRouter.patch("/theater-admin/shows/:id/status", theaterAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const theaterId = req.theaterAdmin.theaterId;
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid show ID",
-        });
-      }
-
-      const show = await Show.findOne({
-        _id: id,
-        theaterId,
-      });
-
-      if (!show) {
-        return res.status(404).json({
-          success: false,
-          message: "Show not found",
-        });
-      }
-
-      if (show.status === "CANCELLED") {
-        return res.status(409).json({
-          success: false,
-          message: "Show is already cancelled",
-        });
-      }
-
-      if (new Date(show.showTime) <= new Date()) {
-        return res.status(400).json({
-          success: false,
-          message: "Cannot cancel a show that has already started",
-        });
-      }
-
-      if (req.body.status !== "CANCELLED") {
-        return res.status(400).json({
-          success: false,
-          message: "Only CANCELLED status is allowed",
-        });
-      }
-
-      show.status = "CANCELLED";
-      await show.save();
-
-      return res.status(200).json({
-        success: true,
-        message: "Show cancelled successfully",
-        data: show,
-      });
-    } catch (err) {
-      console.error("Theater Admin Cancel Show Error:", err);
-
-      return res.status(500).json({
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
         success: false,
-        message: err.message || "Failed to cancel show",
+        message: "Invalid show ID"
       });
     }
+
+    if (!theaterId) {
+      return res.status(403).json({
+        success: false,
+        message: "No theater assigned to this admin"
+      });
+    }
+
+    const show = await Show.findOne({
+      _id: id,
+      theaterId
+    });
+
+    if (!show) {
+      return res.status(404).json({
+        success: false,
+        message: "Show not found"
+      });
+    }
+
+    if (show.status === "CANCELLED") {
+      return res.status(409).json({
+        success: false,
+        message: "Show is already cancelled"
+      });
+    }
+
+    if (new Date(show.showTime) <= new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot cancel a show that has already started"
+      });
+    }
+
+    if (req.body.status !== "CANCELLED") {
+      return res.status(400).json({
+        success: false,
+        message: "Only CANCELLED status is allowed"
+      });
+    }
+
+    show.status = "CANCELLED";
+
+    await show.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Show cancelled successfully",
+      data: show
+    });
+  } catch (err) {
+    console.error("Theater Admin Cancel Show Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to cancel show"
+    });
   }
-);
+});
 
 module.exports = showRouter;
