@@ -31,7 +31,6 @@ const getOTPAttemptsKey = (email) => {
 
 theaterAdminAuthRouter.post(
   "/theater-admin/login",
-  loginRateLimiter, // IP/email based rate limiter middleware
   async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -56,8 +55,6 @@ theaterAdminAuthRouter.post(
         email: normalizedEmail,
       }).select("+password");
 
-      // Uniform response for missing admin / inactive / no theater / bad password
-      // to avoid account enumeration
       const genericInvalid = () =>
         res.status(401).json({
           success: false,
@@ -88,7 +85,6 @@ theaterAdminAuthRouter.post(
       const otpKey = getOTPKey(normalizedEmail);
       const attemptsKey = getOTPAttemptsKey(normalizedEmail);
 
-      // Prevent resetting attempts counter if a valid OTP flow is already active
       const existingOTP = await redisClient.get(otpKey);
       if (existingOTP) {
         return res.status(429).json({
@@ -145,7 +141,6 @@ theaterAdminAuthRouter.post(
 
 theaterAdminAuthRouter.post(
   "/theater-admin/verify-otp",
-  verifyOtpRateLimiter, // IP/email based rate limiter middleware
   async (req, res) => {
     try {
       const { email, otp } = req.body;
@@ -211,7 +206,6 @@ theaterAdminAuthRouter.post(
         });
       }
 
-      // Atomic increment to avoid race conditions on concurrent verify attempts
       const attempts = await redisClient.incr(attemptsKey);
       if (attempts === 1) {
         await redisClient.expire(attemptsKey, OTP_EXPIRY);
@@ -253,7 +247,6 @@ theaterAdminAuthRouter.post(
           "Theater Admin lastLogin Save Error:",
           saveErr
         );
-        // Non-critical: proceed with login even if lastLogin update fails
       }
 
       const token = theaterAdmin.getJWT();
