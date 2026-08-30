@@ -17,95 +17,112 @@ const adminAuth = require("../../middleware/adminAuth");
  * Admin only: generate seat layout for a screen (runs once)
  */
 seatRouter.post("/screens/:screenId/layout", adminAuth, async (req, res) => {
-  try{
-    // 1. validate input
+  try {
     const { screenId } = req.params;
-    if(!mongoose.Types.ObjectId.isValid(screenId)){
+
+    if (!mongoose.Types.ObjectId.isValid(screenId)) {
       return res.status(400).json({
-        success : false,
-        message : "Invalid screen ID",
-      })
+        success: false,
+        message: "Invalid screen ID"
+      });
     }
-    // 2. check if screen exists 
+
     const screen = await Screen.findById(screenId);
-    if(!screen){
+
+    if (!screen) {
       return res.status(404).json({
-        success : false,
-        message : "Screen not found",
-      });
-    }
-    // 3. check if layout already exists (if yes, return error)
-    const existingLayout = await Seat.exists({screenId });
-    if(existingLayout){
-      return res.status(400).json({
-        success : false,
-        message : "Seat layout already exists",
+        success: false,
+        message: "Screen not found"
       });
     }
 
-    // 4. get rows, columns, layout from req.body
-    let { rows, columns, layout ={} } = req.body;
-    rows= parseInt(rows);
-    columns = parseInt(columns);
+    const existingLayout = await Seat.exists({ screenId });
 
-    if(!rows || !columns || rows < 1 || columns < 1 || rows > 26 || rows * columns > 500){
+    if (existingLayout) {
       return res.status(400).json({
-        success : false,
-        message : "Invalid rows or columns",
+        success: false,
+        message: "Seat layout already exists"
       });
     }
-    // 5. Validate seat categories
-    const allowedTypes = ["REGULAR", "VIP", "PREMIUM", "RECLINER"];
-    for(let row in layout){
-      if(!allowedTypes.includes(layout[row])){
+
+    const { rows, columns } = screen;
+    const { layout = {} } = req.body;
+
+    if (
+      !Number.isInteger(rows) ||
+      !Number.isInteger(columns) ||
+      rows < 1 ||
+      columns < 1 ||
+      rows > 26 ||
+      rows * columns > 500
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid screen rows or columns"
+      });
+    }
+
+    const allowedTypes = [
+      "REGULAR",
+      "VIP",
+      "PREMIUM",
+      "RECLINER"
+    ];
+
+    for (const row in layout) {
+      if (!/^[A-Z]$/.test(row)) {
         return res.status(400).json({
-          success : false,
-          message : `Invalid seat type for row ${row}`,
+          success: false,
+          message: `Invalid row ${row}`
+        });
+      }
+
+      if (!allowedTypes.includes(layout[row])) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid seat type for row ${row}`
         });
       }
     }
-    // 6. Generate seats
-    const seats = [];
-    for(let i=0;i<rows ;i++){
-      const rowLetter = String.fromCharCode(65 + i); // A,B 
-      for(let j=1;j<=columns;j++){
-        const seatLabel = `${rowLetter}${j}`; // A1  B2 ...
 
+    const seats = [];
+
+    for (let i = 0; i < rows; i++) {
+      const rowLetter = String.fromCharCode(65 + i);
+
+      for (let j = 1; j <= columns; j++) {
         seats.push({
           screenId,
-          row : rowLetter,
-          column : j,
-          seatLabel,
-          category : layout[rowLetter] || "REGULAR",
+          row: rowLetter,
+          column: j,
+          seatLabel: `${rowLetter}${j}`,
+          category: layout[rowLetter] || "REGULAR"
         });
       }
     }
-    // 7. insert seats in DB
+
     await Seat.insertMany(seats);
 
-    // 8 main important step - mark screen documnet with seat generated = true 
     screen.seatsGenerated = true;
     screen.totalSeats = seats.length;
+
     await screen.save();
 
-    // 9. return success response
-    res.status(201).json({
-      success : true,
-      message : "Seat layout created successfully",
-      data : {
-        totalSeats : seats.length,
+    return res.status(201).json({
+      success: true,
+      message: "Seat layout created successfully",
+      data: {
+        totalSeats: seats.length,
         rows,
-        columns,
+        columns
       }
     });
   } catch (err) {
-      console.error("Create Seat Layout Error:", err);
-
-      return res.status(500).json({
-        success: false,
-        message: err.message || "Failed to create seat layout",
-      });
-    }
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to create seat layout"
+    });
+  }
 });
 
 /**
