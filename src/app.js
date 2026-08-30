@@ -69,7 +69,7 @@ const bookingRouter = require("./routers/users/bookingRoutes");
 const paymentRouter = require("./routers/users/paymentRouter")
 // theater routes
 const theaterRequestRouter = require("./routers/admin/theaterRequests");
-const theaterAdminAuthRouter=require("./routers/theaterAdmin/theaterAdminAuth");
+const theaterAdminAuthRouter=require("./routers/theaterAdmin/theaterAdminAuthRouter");
 const theaterRouter=require("./routers/theaterAdmin/theater");
 const screenRouter=require("./routers/theaterAdmin/screenRouter");
 const seatRouter = require("./routers/theaterAdmin/seatRouter");
