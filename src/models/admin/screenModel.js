@@ -92,8 +92,6 @@ screenSchema.pre("save",function(next){
 
     this.totalSeats=total;
   }
-
-  next();
 });
 
 module.exports=mongoose.model("Screen",screenSchema);

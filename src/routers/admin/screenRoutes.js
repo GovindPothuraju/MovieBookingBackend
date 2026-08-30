@@ -14,7 +14,7 @@ const Screen = require("../../models/admin/screenModel");
  * POST /theaters/:theaterId/screens
  * Admin only: create a new screen under a theater
  */
-screenRouter.post('/theaters/:theaterId/screens', adminAuth, async (req, res) => {
+screenRouter.post("/theaters/:theaterId/screens", async (req, res) => {
   try {
     const result = validateCreateScreen(req);
     if (result.error) {
@@ -27,12 +27,14 @@ screenRouter.post('/theaters/:theaterId/screens', adminAuth, async (req, res) =>
     const { theaterId, name } = result.value;
 
     const theater = await Theater.findById(theaterId);
+
     if (!theater) {
       return res.status(404).json({
         success: false,
         message: "Theater not found"
       });
     }
+
     if (!theater.isActive) {
       return res.status(403).json({
         success: false,
@@ -40,12 +42,12 @@ screenRouter.post('/theaters/:theaterId/screens', adminAuth, async (req, res) =>
       });
     }
 
-    // scope duplicate check to active screens only
     const existingScreen = await Screen.findOne({
       theaterId,
       name,
       isActive: true
     });
+
     if (existingScreen) {
       return res.status(409).json({
         success: false,
@@ -54,19 +56,20 @@ screenRouter.post('/theaters/:theaterId/screens', adminAuth, async (req, res) =>
     }
 
     const newScreen = new Screen(result.value);
+
     await newScreen.save();
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Screen created successfully",
       data: newScreen
     });
-
   } catch (err) {
-    console.error("Create screen error:", err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: err.message || "Server error during screen creation"
+      message:
+        err.message ||
+        "Server error during screen creation"
     });
   }
 });
