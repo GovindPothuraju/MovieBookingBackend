@@ -62,7 +62,7 @@ showRouter.get("/theater-admin/movies", theaterAdminAuth, async (req, res) => {
 showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
   try {
     const theaterId = req.user.theaterId;
-
+    console.log(theaterId);
     if (!theaterId || !mongoose.Types.ObjectId.isValid(theaterId)) {
       return res.status(400).json({
         success: false,
