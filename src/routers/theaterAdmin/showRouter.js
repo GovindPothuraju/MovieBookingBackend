@@ -7,6 +7,7 @@ const Show = require("../../models/admin/showModel");
 const Seat = require("../../models/admin/seatSchema");
 const Screen = require("../../models/admin/screenModel");
 const Theater = require("../../models/admin/theaterModel");
+const redisClient = require("../../config/redis");
 
 const theaterAdminAuth = require("../../middleware/theaterAdminAuth");
 const {
@@ -58,6 +59,7 @@ showRouter.get("/theater-admin/movies", theaterAdminAuth, async (req, res) => {
 /**
  * POST /theater-admin/shows
  * Theater Admin: create a show for his own theater
+ * also redis applied
  */
 showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
   try {
@@ -191,34 +193,74 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       }
     }
 
-    const seatCounts = await Seat.aggregate([
-      {
-        $match: {
-          screenId: new mongoose.Types.ObjectId(screenId),
-          isActive: true
-        }
-      },
-      {
-        $group: {
-          _id: "$category",
-          totalSeats: { $sum: 1 }
-        }
-      }
-    ]);
+    /*
+     * REDIS
+     * Cache seat category counts for this screen.
+     */
+    const redisKey = `screen:${screenId}:seat-counts`;
 
-    if (!seatCounts.length) {
-      return res.status(400).json({
-        success: false,
-        message: "No seats found for this screen"
-      });
+    let seatCountMap = null;
+
+    try {
+      const cachedSeatCounts = await redisClient.get(redisKey);
+
+      if (cachedSeatCounts) {
+        seatCountMap = JSON.parse(cachedSeatCounts);
+      }
+    } catch (redisError) {
+      console.error("Redis GET Error:", redisError);
     }
 
-    const seatCountMap = {};
+    /*
+     * Redis MISS → get seat counts from MongoDB.
+     */
+    if (!seatCountMap) {
+      const seatCounts = await Seat.aggregate([
+        {
+          $match: {
+            screenId: new mongoose.Types.ObjectId(screenId),
+            isActive: true
+          }
+        },
+        {
+          $group: {
+            _id: "$category",
+            totalSeats: { $sum: 1 }
+          }
+        }
+      ]);
 
-    seatCounts.forEach((seat) => {
-      seatCountMap[seat._id] = seat.totalSeats;
-    });
+      if (!seatCounts.length) {
+        return res.status(400).json({
+          success: false,
+          message: "No seats found for this screen"
+        });
+      }
 
+      seatCountMap = {};
+
+      seatCounts.forEach((seat) => {
+        seatCountMap[seat._id] = seat.totalSeats;
+      });
+
+      /*
+       * Store in Redis for 1 hour.
+       */
+      try {
+        await redisClient.set(
+          redisKey,
+          JSON.stringify(seatCountMap),
+          { EX: 3600 }
+        );
+      } catch (redisError) {
+        console.error("Redis SET Error:", redisError);
+      }
+    }
+
+    /*
+     * Validate prices against the actual
+     * seat categories of this screen.
+     */
     for (const category in seatCountMap) {
       if (!(category in priceMap)) {
         return res.status(400).json({
@@ -237,6 +279,10 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       }
     }
 
+    /*
+     * Prevent sending a category that doesn't
+     * exist on this screen.
+     */
     for (const category in priceMap) {
       if (!(category in seatCountMap)) {
         return res.status(400).json({
@@ -246,6 +292,9 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       }
     }
 
+    /*
+     * Build final price map.
+     */
     const finalPriceMap = {};
 
     for (const category in seatCountMap) {
@@ -256,6 +305,9 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       };
     }
 
+    /*
+     * Create show.
+     */
     const newShow = await Show.create({
       movieId,
       theaterId,
@@ -269,6 +321,7 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       message: "Show created successfully",
       data: newShow
     });
+
   } catch (err) {
     console.error("Theater Admin Create Show Error:", err);
 

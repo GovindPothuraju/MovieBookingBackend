@@ -5,6 +5,7 @@ const seatRouter = express.Router();
 
 const Seat = require("../../models/admin/seatSchema");
 const Screen = require("../../models/admin/screenModel");
+const redisClient = require("../../config/redis");
 
 const theaterAdminAuth = require("../../middleware/theaterAdminAuth");
 
@@ -23,9 +24,7 @@ const ALLOWED_SEAT_TYPES = [
  * POST /theater-admin/screens/:screenId/layout
  * Theater Admin: create seat layout
  */
-seatRouter.post(
-  "/theater-admin/screens/:screenId/layout",
-  theaterAdminAuth,
+seatRouter.post( "/theater-admin/screens/:screenId/layout",theaterAdminAuth,
   async (req, res) => {
     try {
       const { screenId } = req.params;
@@ -137,6 +136,8 @@ seatRouter.post(
       screen.totalSeats = seats.length;
 
       await screen.save();
+      // delelte seats from redis
+      await redisClient.del(`screen:${screenId}:seat-counts`);
 
       return res.status(201).json({
         success: true,
@@ -254,10 +255,7 @@ seatRouter.get( "/theater-admin/screens/:screenId/seats", theaterAdminAuth,
  * PUT /theater-admin/screens/:screenId/layout
  * Theater Admin: update row categories
  */
-seatRouter.put(
-  "/theater-admin/screens/:screenId/layout",
-  theaterAdminAuth,
-  async (req, res) => {
+seatRouter.put("/theater-admin/screens/:screenId/layout",theaterAdminAuth,async (req, res) => {
     try {
       const { screenId } = req.params;
       const theaterId = getTheaterId(req);
@@ -347,7 +345,8 @@ seatRouter.put(
           }
         );
       }
-
+      //  delete cache from redis
+      await redisClient.del(`screen:${screenId}:seat-counts`);
       return res.status(200).json({
         success: true,
         message: "Seat layout updated successfully",
@@ -370,10 +369,7 @@ seatRouter.put(
  * DELETE /theater-admin/screens/:screenId/layout
  * Theater Admin: delete seat layout
  */
-seatRouter.delete(
-  "/theater-admin/screens/:screenId/layout",
-  theaterAdminAuth,
-  async (req, res) => {
+seatRouter.delete( "/theater-admin/screens/:screenId/layout", theaterAdminAuth,async (req, res) => {
     try {
       const { screenId } = req.params;
       const theaterId = getTheaterId(req);
@@ -424,7 +420,8 @@ seatRouter.delete(
       screen.seatsGenerated = false;
 
       await screen.save();
-
+      // delete cache from redis
+      await redisClient.del(`screen:${screenId}:seat-counts`);
       return res.status(200).json({
         success: true,
         message: "Seat layout deleted successfully",
