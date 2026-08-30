@@ -32,6 +32,30 @@ const getShowStatus = (show) => {
 };
 
 /**
+ * GET /theater-admin/movies
+ * Theater Admin: get active movies available for creating shows
+ */
+showRouter.get("/theater-admin/movies", theaterAdminAuth, async (req, res) => {
+  try {
+    const movies = await Movie.find({ isActive: true })
+      .select("_id title duration posterUrl")
+      .sort({ title: 1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      data: movies,
+    });
+  } catch (err) {
+    console.error("Get Theater Admin Movies Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to fetch movies",
+    });
+  }
+});
+/**
  * POST /theater-admin/shows
  * Theater Admin: create a show for his own theater
  */
