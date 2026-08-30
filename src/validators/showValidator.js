@@ -136,4 +136,40 @@ const validateShowUpdateInput = (req) => {
   }
 };
 
-module.exports = { validateShowInput ,validateShowUpdateInput};
+const validateTheaterAdminShowInput = (req) => {
+  try {
+    const { movieId, screenId, showTime, priceMap } = req.body;
+
+    if (!movieId || !mongoose.Types.ObjectId.isValid(movieId)) {
+      return { error: "Invalid movie ID" };
+    }
+
+    if (!screenId || !mongoose.Types.ObjectId.isValid(screenId)) {
+      return { error: "Invalid screen ID" };
+    }
+
+    if (!showTime || isNaN(new Date(showTime).getTime())) {
+      return { error: "Valid show time is required" };
+    }
+
+    if (!priceMap || typeof priceMap !== "object") {
+      return { error: "Price map is required" };
+    }
+
+    return {
+      error: null,
+      value: {
+        movieId,
+        screenId,
+        showTime: new Date(showTime),
+        priceMap,
+      },
+    };
+  } catch (err) {
+    return {
+      error: "Validation failed",
+    };
+  }
+};
+
+module.exports = { validateShowInput ,validateShowUpdateInput , validateTheaterAdminShowInput};
