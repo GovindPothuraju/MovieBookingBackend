@@ -71,7 +71,8 @@ const theaterRequestRouter = require("./routers/admin/theaterRequests");
 const theaterAdminAuthRouter=require("./routers/theaterAdmin/theaterAdminAuth");
 const theaterRouter=require("./routers/theaterAdmin/theater");
 const screenRouter=require("./routers/theaterAdmin/screenRouter");
-const seatRouter = require("./routers/theaterAdmin/seatRouter")
+const seatRouter = require("./routers/theaterAdmin/seatRouter");
+const showRouter = require("./routers/theaterAdmin/showRouter");
 
 
 // Admin routes
@@ -98,6 +99,7 @@ app.use("/api",theaterAdminAuthRouter);
 app.use("/api",theaterRouter);
 app.use("/api",screenRouter);
 app.use("/api",seatRouter);
+app.use("/api",showRouter)
 
 // Health check
 app.get("/healthz", (req, res) => {

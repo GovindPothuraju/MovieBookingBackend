@@ -161,9 +161,7 @@ seatRouter.post(
  * GET /theater-admin/screens/:screenId/seats
  * Theater Admin: get seat layout
  */
-seatRouter.get(
-  "/theater-admin/screens/:screenId/seats",
-  theaterAdminAuth,
+seatRouter.get( "/theater-admin/screens/:screenId/seats", theaterAdminAuth,
   async (req, res) => {
     try {
       const { screenId } = req.params;
