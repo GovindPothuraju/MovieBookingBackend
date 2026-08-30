@@ -63,12 +63,12 @@ showRouter.get("/theater-admin/movies", theaterAdminAuth, async (req, res) => {
  */
 showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
   try {
-    const theaterId = req.theaterAdmin.theaterId;
+    const theaterId = req.theaterAdmin?.theaterId;
 
     if (!theaterId || !mongoose.Types.ObjectId.isValid(theaterId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid theater assigned to admin"
+        message: "Invalid theater assigned to admin",
       });
     }
 
@@ -77,25 +77,21 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
     if (error) {
       return res.status(400).json({
         success: false,
-        message: error
+        message: error,
       });
     }
 
     const { movieId, screenId, showTime, priceMap } = value;
 
-    const theater = await Theater.findById(theaterId);
+    const theater = await Theater.findOne({
+      _id: theaterId,
+      isActive: true,
+    });
 
     if (!theater) {
       return res.status(404).json({
         success: false,
-        message: "Theater not found"
-      });
-    }
-
-    if (!theater.isActive) {
-      return res.status(400).json({
-        success: false,
-        message: "Theater is inactive"
+        message: "Theater not found or inactive",
       });
     }
 
@@ -104,57 +100,64 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
     if (!movie) {
       return res.status(404).json({
         success: false,
-        message: "Movie not found"
+        message: "Movie not found",
       });
     }
 
     if (!movie.isActive) {
       return res.status(400).json({
         success: false,
-        message: "Movie is inactive"
+        message: "Movie is inactive",
       });
     }
 
     if (movie.status === "ARCHIVED") {
       return res.status(400).json({
         success: false,
-        message: "Cannot create show for archived movie"
+        message: "Cannot create show for archived movie",
       });
     }
 
     const newShowStart = new Date(showTime);
 
+    if (Number.isNaN(newShowStart.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid show time",
+      });
+    }
+
     if (newShowStart < new Date(movie.releaseDate)) {
       return res.status(400).json({
         success: false,
-        message: "Show cannot be scheduled before movie release date"
+        message: "Show cannot be scheduled before movie release date",
       });
     }
 
     if (newShowStart <= new Date()) {
       return res.status(400).json({
         success: false,
-        message: "Cannot create show in the past"
+        message: "Cannot create show in the past",
       });
     }
 
     const screen = await Screen.findOne({
       _id: screenId,
       theaterId,
-      isActive: true
+      isActive: true,
     });
 
     if (!screen) {
       return res.status(404).json({
         success: false,
-        message: "Screen not found in your theater"
+        message: "Screen not found in your theater",
       });
     }
 
     if (!screen.seatsGenerated) {
       return res.status(400).json({
         success: false,
-        message: "Seat layout is not generated for this screen"
+        message: "Seat layout is not generated for this screen",
       });
     }
 
@@ -162,13 +165,13 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
 
     const newShowEnd = new Date(
       newShowStart.getTime() +
-      (movie.duration + BUFFER_TIME) * 60 * 1000
+        (movie.duration + BUFFER_TIME) * 60 * 1000
     );
 
     const existingShows = await Show.find({
       theaterId,
       screenId,
-      status: "SCHEDULED"
+      status: "SCHEDULED",
     }).populate("movieId", "duration");
 
     for (const existingShow of existingShows) {
@@ -178,68 +181,56 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
 
       const existingEnd = new Date(
         existingStart.getTime() +
-        (existingShow.movieId.duration + BUFFER_TIME) * 60 * 1000
+          (existingShow.movieId.duration + BUFFER_TIME) * 60 * 1000
       );
 
-      const isOverlap =
+      if (
         newShowStart < existingEnd &&
-        newShowEnd > existingStart;
-
-      if (isOverlap) {
+        newShowEnd > existingStart
+      ) {
         return res.status(409).json({
           success: false,
-          message: `Screen is already occupied between ${existingStart.toLocaleString()} and ${existingEnd.toLocaleString()}`
+          message: `Screen is already occupied between ${existingStart.toLocaleString()} and ${existingEnd.toLocaleString()}`,
         });
       }
     }
-
-    /*
-    * REDIS
-    * Cache seat category counts for this screen.
-    */
 
     const cacheKey = `screen:${screenId}:seat-counts`;
 
     let seatCountMap = null;
 
-    // 1. Check Redis
     try {
       const cachedData = await redisClient.get(cacheKey);
 
       if (cachedData) {
-        console.log("Seat counts loaded from Redis:", cacheKey);
-
         seatCountMap = JSON.parse(cachedData);
       }
     } catch (redisErr) {
       console.error("Redis GET Error:", redisErr.message);
     }
 
-    // 2. Redis MISS -> MongoDB
     if (!seatCountMap) {
-      console.log("Seat count Redis MISS:", cacheKey);
-
       const seatCounts = await Seat.aggregate([
         {
           $match: {
             screenId: new mongoose.Types.ObjectId(screenId),
-            isActive: true
-          }
+            isActive: true,
+          },
         },
         {
           $group: {
             _id: "$category",
             totalSeats: {
-              $sum: 1
-            }
-          }
-        }
+              $sum: 1,
+            },
+          },
+        },
       ]);
 
       if (!seatCounts.length) {
         return res.status(400).json({
           success: false,
-          message: "No seats found for this screen"
+          message: "No seats found for this screen",
         });
       }
 
@@ -249,29 +240,33 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
         seatCountMap[seat._id] = seat.totalSeats;
       });
 
-      // 3. Store in Redis for 10 minutes
       try {
         await redisClient.setEx(
           cacheKey,
           600,
           JSON.stringify(seatCountMap)
         );
-
-        console.log("Seat counts stored in Redis:", cacheKey);
       } catch (redisErr) {
         console.error("Redis SET Error:", redisErr.message);
       }
     }
 
-    /*
-     * Validate prices against the actual
-     * seat categories of this screen.
-     */
+    if (
+      !priceMap ||
+      typeof priceMap !== "object" ||
+      Array.isArray(priceMap)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid price map",
+      });
+    }
+
     for (const category in seatCountMap) {
       if (!(category in priceMap)) {
         return res.status(400).json({
           success: false,
-          message: `Price missing for category ${category}`
+          message: `Price missing for category ${category}`,
         });
       }
 
@@ -280,60 +275,49 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
       if (!Number.isFinite(price) || price <= 0) {
         return res.status(400).json({
           success: false,
-          message: `Invalid price for category ${category}`
+          message: `Invalid price for category ${category}`,
         });
       }
     }
 
-    /*
-     * Prevent sending a category that doesn't
-     * exist on this screen.
-     */
     for (const category in priceMap) {
       if (!(category in seatCountMap)) {
         return res.status(400).json({
           success: false,
-          message: `Category ${category} does not exist in this screen`
+          message: `Category ${category} does not exist in this screen`,
         });
       }
     }
 
-    /*
-     * Build final price map.
-     */
     const finalPriceMap = {};
 
     for (const category in seatCountMap) {
       finalPriceMap[category] = {
         price: Number(priceMap[category]),
         totalSeats: seatCountMap[category],
-        availableSeats: seatCountMap[category]
+        availableSeats: seatCountMap[category],
       };
     }
 
-    /*
-     * Create show.
-     */
     const newShow = await Show.create({
       movieId,
       theaterId,
       screenId,
       showTime: newShowStart,
-      priceMap: finalPriceMap
+      priceMap: finalPriceMap,
     });
 
     return res.status(201).json({
       success: true,
       message: "Show created successfully",
-      data: newShow
+      data: newShow,
     });
-
   } catch (err) {
     console.error("Theater Admin Create Show Error:", err);
 
     return res.status(500).json({
       success: false,
-      message: err.message || "Failed to create show"
+      message: err.message || "Failed to create show",
     });
   }
 });
