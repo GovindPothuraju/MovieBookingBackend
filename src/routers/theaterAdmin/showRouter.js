@@ -194,27 +194,31 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
     }
 
     /*
-     * REDIS
-     * Cache seat category counts for this screen.
-     */
-    const redisKey = `screen:${screenId}:seat-counts`;
+    * REDIS
+    * Cache seat category counts for this screen.
+    */
+
+    const cacheKey = `screen:${screenId}:seat-counts`;
 
     let seatCountMap = null;
 
+    // 1. Check Redis
     try {
-      const cachedSeatCounts = await redisClient.get(redisKey);
+      const cachedData = await redisClient.get(cacheKey);
 
-      if (cachedSeatCounts) {
-        seatCountMap = JSON.parse(cachedSeatCounts);
+      if (cachedData) {
+        console.log("Seat counts loaded from Redis:", cacheKey);
+
+        seatCountMap = JSON.parse(cachedData);
       }
-    } catch (redisError) {
-      console.error("Redis GET Error:", redisError);
+    } catch (redisErr) {
+      console.error("Redis GET Error:", redisErr.message);
     }
 
-    /*
-     * Redis MISS → get seat counts from MongoDB.
-     */
+    // 2. Redis MISS -> MongoDB
     if (!seatCountMap) {
+      console.log("Seat count Redis MISS:", cacheKey);
+
       const seatCounts = await Seat.aggregate([
         {
           $match: {
@@ -225,7 +229,9 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
         {
           $group: {
             _id: "$category",
-            totalSeats: { $sum: 1 }
+            totalSeats: {
+              $sum: 1
+            }
           }
         }
       ]);
@@ -243,17 +249,17 @@ showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
         seatCountMap[seat._id] = seat.totalSeats;
       });
 
-      /*
-       * Store in Redis for 1 hour.
-       */
+      // 3. Store in Redis for 10 minutes
       try {
-        await redisClient.set(
-          redisKey,
-          JSON.stringify(seatCountMap),
-          { EX: 3600 }
+        await redisClient.setEx(
+          cacheKey,
+          600,
+          JSON.stringify(seatCountMap)
         );
-      } catch (redisError) {
-        console.error("Redis SET Error:", redisError);
+
+        console.log("Seat counts stored in Redis:", cacheKey);
+      } catch (redisErr) {
+        console.error("Redis SET Error:", redisErr.message);
       }
     }
 
