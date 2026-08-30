@@ -31,6 +31,7 @@ const getOTPAttemptsKey = (email) => {
 
 theaterAdminAuthRouter.post(
   "/theater-admin/login",
+  loginRateLimiter, // IP/email based rate limiter middleware
   async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -42,31 +43,37 @@ theaterAdminAuthRouter.post(
         });
       }
 
+      if (typeof email !== "string" || typeof password !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid input format",
+        });
+      }
+
       const normalizedEmail = email.toLowerCase().trim();
 
       const theaterAdmin = await TheaterAdmin.findOne({
         email: normalizedEmail,
       }).select("+password");
 
-      if (!theaterAdmin) {
-        return res.status(401).json({
+      // Uniform response for missing admin / inactive / no theater / bad password
+      // to avoid account enumeration
+      const genericInvalid = () =>
+        res.status(401).json({
           success: false,
           message: "Invalid credentials",
         });
+
+      if (!theaterAdmin) {
+        return genericInvalid();
       }
 
       if (!theaterAdmin.isActive) {
-        return res.status(403).json({
-          success: false,
-          message: "Your account is inactive",
-        });
+        return genericInvalid();
       }
 
       if (!theaterAdmin.theaterId) {
-        return res.status(403).json({
-          success: false,
-          message: "No theater assigned to this admin",
-        });
+        return genericInvalid();
       }
 
       const isPasswordValid = await bcrypt.compare(
@@ -75,9 +82,19 @@ theaterAdminAuthRouter.post(
       );
 
       if (!isPasswordValid) {
-        return res.status(401).json({
+        return genericInvalid();
+      }
+
+      const otpKey = getOTPKey(normalizedEmail);
+      const attemptsKey = getOTPAttemptsKey(normalizedEmail);
+
+      // Prevent resetting attempts counter if a valid OTP flow is already active
+      const existingOTP = await redisClient.get(otpKey);
+      if (existingOTP) {
+        return res.status(429).json({
           success: false,
-          message: "Invalid credentials",
+          message:
+            "An OTP was already sent. Please wait for it to expire before requesting a new one.",
         });
       }
 
@@ -88,20 +105,8 @@ theaterAdminAuthRouter.post(
         Number(process.env.BCRYPT_SALT_ROUNDS) || 10
       );
 
-      const otpKey = getOTPKey(normalizedEmail);
-      const attemptsKey = getOTPAttemptsKey(normalizedEmail);
-
-      await redisClient.setEx(
-        otpKey,
-        OTP_EXPIRY,
-        hashedOTP
-      );
-
-      await redisClient.setEx(
-        attemptsKey,
-        OTP_EXPIRY,
-        "0"
-      );
+      await redisClient.setEx(otpKey, OTP_EXPIRY, hashedOTP);
+      await redisClient.setEx(attemptsKey, OTP_EXPIRY, "0");
 
       try {
         await sendEmail({
@@ -114,7 +119,12 @@ theaterAdminAuthRouter.post(
         await redisClient.del(otpKey);
         await redisClient.del(attemptsKey);
 
-        throw emailError;
+        console.error("Theater Admin OTP Email Error:", emailError);
+
+        return res.status(502).json({
+          success: false,
+          message: "Failed to send OTP. Please try again.",
+        });
       }
 
       return res.status(200).json({
@@ -135,6 +145,7 @@ theaterAdminAuthRouter.post(
 
 theaterAdminAuthRouter.post(
   "/theater-admin/verify-otp",
+  verifyOtpRateLimiter, // IP/email based rate limiter middleware
   async (req, res) => {
     try {
       const { email, otp } = req.body;
@@ -146,38 +157,52 @@ theaterAdminAuthRouter.post(
         });
       }
 
+      if (
+        typeof email !== "string" ||
+        (typeof otp !== "string" && typeof otp !== "number")
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid input format",
+        });
+      }
+
       const normalizedEmail = email.toLowerCase().trim();
+      const otpString = otp.toString().trim();
+
+      if (!/^\d{4,8}$/.test(otpString)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid OTP format",
+        });
+      }
 
       const theaterAdmin = await TheaterAdmin.findOne({
         email: normalizedEmail,
       });
 
-      if (!theaterAdmin) {
-        return res.status(404).json({
+      const genericInvalid = () =>
+        res.status(401).json({
           success: false,
-          message: "Theater Admin not found",
+          message: "Invalid credentials",
         });
+
+      if (!theaterAdmin) {
+        return genericInvalid();
       }
 
       if (!theaterAdmin.isActive) {
-        return res.status(403).json({
-          success: false,
-          message: "Your account is inactive",
-        });
+        return genericInvalid();
       }
 
       if (!theaterAdmin.theaterId) {
-        return res.status(403).json({
-          success: false,
-          message: "No theater assigned to this admin",
-        });
+        return genericInvalid();
       }
 
       const otpKey = getOTPKey(normalizedEmail);
       const attemptsKey = getOTPAttemptsKey(normalizedEmail);
 
       const hashedOTP = await redisClient.get(otpKey);
-      const attemptsValue = await redisClient.get(attemptsKey);
 
       if (!hashedOTP) {
         return res.status(400).json({
@@ -186,9 +211,13 @@ theaterAdminAuthRouter.post(
         });
       }
 
-      const attempts = Number(attemptsValue || 0);
+      // Atomic increment to avoid race conditions on concurrent verify attempts
+      const attempts = await redisClient.incr(attemptsKey);
+      if (attempts === 1) {
+        await redisClient.expire(attemptsKey, OTP_EXPIRY);
+      }
 
-      if (attempts >= MAX_OTP_ATTEMPTS) {
+      if (attempts > MAX_OTP_ATTEMPTS) {
         await redisClient.del(otpKey);
         await redisClient.del(attemptsKey);
 
@@ -199,25 +228,16 @@ theaterAdminAuthRouter.post(
         });
       }
 
-      const isOTPValid = await bcrypt.compare(
-        otp.toString(),
-        hashedOTP
-      );
+      const isOTPValid = await bcrypt.compare(otpString, hashedOTP);
 
       if (!isOTPValid) {
-        const newAttempts = attempts + 1;
-
-        await redisClient.setEx(
-          attemptsKey,
-          OTP_EXPIRY,
-          newAttempts.toString()
-        );
-
         return res.status(401).json({
           success: false,
           message: "Invalid OTP",
-          attemptsRemaining:
-            MAX_OTP_ATTEMPTS - newAttempts,
+          attemptsRemaining: Math.max(
+            MAX_OTP_ATTEMPTS - attempts,
+            0
+          ),
         });
       }
 
@@ -226,18 +246,24 @@ theaterAdminAuthRouter.post(
 
       theaterAdmin.lastLogin = new Date();
 
-      await theaterAdmin.save();
+      try {
+        await theaterAdmin.save();
+      } catch (saveErr) {
+        console.error(
+          "Theater Admin lastLogin Save Error:",
+          saveErr
+        );
+        // Non-critical: proceed with login even if lastLogin update fails
+      }
 
       const token = theaterAdmin.getJWT();
 
       const cookieExpireDays =
         parseInt(process.env.COOKIE_EXPIRE, 10) || 7;
 
-      const maxAgeMs =
-        cookieExpireDays * 24 * 60 * 60 * 1000;
+      const maxAgeMs = cookieExpireDays * 24 * 60 * 60 * 1000;
 
-      const isProduction =
-        process.env.NODE_ENV === "production";
+      const isProduction = process.env.NODE_ENV === "production";
 
       res.cookie("token", token, {
         httpOnly: true,
@@ -255,15 +281,11 @@ theaterAdminAuthRouter.post(
           name: theaterAdmin.name,
           email: theaterAdmin.email,
           theaterId: theaterAdmin.theaterId,
-          mustChangePassword:
-            theaterAdmin.mustChangePassword,
+          mustChangePassword: theaterAdmin.mustChangePassword,
         },
       });
     } catch (err) {
-      console.error(
-        "Theater Admin Verify OTP Error:",
-        err
-      );
+      console.error("Theater Admin Verify OTP Error:", err);
 
       return res.status(500).json({
         success: false,
