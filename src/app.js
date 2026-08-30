@@ -70,7 +70,7 @@ const paymentRouter = require("./routers/users/paymentRouter")
 const theaterRequestRouter = require("./routers/admin/theaterRequests");
 const theaterAdminAuthRouter=require("./routers/theaterAdmin/theaterAdminAuth");
 const theaterRouter=require("./routers/theaterAdmin/theater");
-const screenRouter=require("./routers/theaterAdmin/screens");
+const screenRouter=require("./routers/theaterAdmin/screenRouter");
 
 
 // Admin routes
