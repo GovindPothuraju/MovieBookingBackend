@@ -15,7 +15,7 @@ const SCREEN_TYPES = ["IMAX", "4DX", "2D", "3D"];
 screenRouter.post("/theater-admin/screens", theaterAdminAuth, async (req, res) => {
   try {
     const theaterId = req.theaterAdmin?.theaterId;
-
+    console.log(theaterId);
     if (!theaterId) {
       return res.status(401).json({
         success: false,
