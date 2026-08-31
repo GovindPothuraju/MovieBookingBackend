@@ -48,10 +48,8 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-
 app.use(express.json());
 app.use(cookieParser());
-
 
 // Admin Routes
 const adminRoutes = require("./routers/admin/adminRoutes");
