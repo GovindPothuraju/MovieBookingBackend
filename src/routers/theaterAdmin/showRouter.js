@@ -36,243 +36,32 @@ const getShowStatus = (show) => {
  * GET /theater-admin/movies
  * Theater Admin: get active movies available for creating shows
  */
-showRouter.post("/theater-admin/shows", theaterAdminAuth, async (req, res) => {
+showRouter.get("/theater-admin/movies", theaterAdminAuth, async (req, res) => {
   try {
-    const theaterId = req.theaterAdmin?.theaterId;
-
-    if (!theaterId || !mongoose.Types.ObjectId.isValid(theaterId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid theater assigned to admin",
-      });
-    }
-
-    const { value, error } = validateTheaterAdminShowInput(req);
-
-    if (error) {
-      return res.status(400).json({
-        success: false,
-        message: error,
-      });
-    }
-
-    const { movieId, screenId, showTime, priceMap } = value;
-
-    const theater = await Theater.findOne({
-      _id: theaterId,
+    const movies = await Movie.find({
       isActive: true,
-    });
+      status: { $ne: "ARCHIVED" },
+    })
+      .select("title duration releaseDate posterUrl language genre status")
+      .sort({ releaseDate: -1 })
+      .lean();
 
-    if (!theater) {
-      return res.status(404).json({
-        success: false,
-        message: "Theater not found or inactive",
-      });
-    }
-
-    const movie = await Movie.findById(movieId);
-
-    if (!movie) {
-      return res.status(404).json({
-        success: false,
-        message: "Movie not found",
-      });
-    }
-
-    if (!movie.isActive) {
-      return res.status(400).json({
-        success: false,
-        message: "Movie is inactive",
-      });
-    }
-
-    if (movie.status === "ARCHIVED") {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot create show for archived movie",
-      });
-    }
-
-    const newShowStart = new Date(showTime);
-
-    if (Number.isNaN(newShowStart.getTime())) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid show time",
-      });
-    }
-
-    if (newShowStart < new Date(movie.releaseDate)) {
-      return res.status(400).json({
-        success: false,
-        message: "Show cannot be scheduled before movie release date",
-      });
-    }
-
-    if (newShowStart <= new Date()) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot create show in the past",
-      });
-    }
-
-    const screen = await Screen.findOne({
-      _id: screenId,
-      theaterId,
-      isActive: true,
-    });
-
-    if (!screen) {
-      return res.status(404).json({
-        success: false,
-        message: "Screen not found in your theater",
-      });
-    }
-
-    if (!screen.seatsGenerated) {
-      return res.status(400).json({
-        success: false,
-        message: "Seat layout is not generated for this screen",
-      });
-    }
-
-    const BUFFER_TIME = 30;
-
-    const newShowEnd = new Date(
-      newShowStart.getTime() +
-        (movie.duration + BUFFER_TIME) * 60 * 1000
-    );
-
-    const existingShows = await Show.find({
-      theaterId,
-      screenId,
-      status: "SCHEDULED",
-    }).populate("movieId", "duration");
-
-    for (const existingShow of existingShows) {
-      if (!existingShow.movieId) {
-        continue;
-      }
-
-      const existingStart = new Date(existingShow.showTime);
-
-      const existingEnd = new Date(
-        existingStart.getTime() +
-          (existingShow.movieId.duration + BUFFER_TIME) * 60 * 1000
-      );
-
-      const isOverlap =
-        newShowStart < existingEnd &&
-        newShowEnd > existingStart;
-
-      if (isOverlap) {
-        return res.status(409).json({
-          success: false,
-          message: `Screen is already occupied between ${existingStart.toLocaleString()} and ${existingEnd.toLocaleString()}`,
-        });
-      }
-    }
-
-    const seatCounts = await Seat.aggregate([
-      {
-        $match: {
-          screenId: new mongoose.Types.ObjectId(screenId),
-          isActive: true,
-        },
-      },
-      {
-        $group: {
-          _id: "$category",
-          totalSeats: {
-            $sum: 1,
-          },
-        },
-      },
-    ]);
-
-    if (!seatCounts.length) {
-      return res.status(400).json({
-        success: false,
-        message: "No seats found for this screen",
-      });
-    }
-
-    const seatCountMap = {};
-
-    seatCounts.forEach((seat) => {
-      seatCountMap[seat._id] = seat.totalSeats;
-    });
-
-    if (
-      !priceMap ||
-      typeof priceMap !== "object" ||
-      Array.isArray(priceMap)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid price map",
-      });
-    }
-
-    for (const category in seatCountMap) {
-      if (!(category in priceMap)) {
-        return res.status(400).json({
-          success: false,
-          message: `Price missing for category ${category}`,
-        });
-      }
-
-      const price = Number(priceMap[category]);
-
-      if (!Number.isFinite(price) || price <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid price for category ${category}`,
-        });
-      }
-    }
-
-    for (const category in priceMap) {
-      if (!(category in seatCountMap)) {
-        return res.status(400).json({
-          success: false,
-          message: `Category ${category} does not exist in this screen`,
-        });
-      }
-    }
-
-    const finalPriceMap = {};
-
-    for (const category in seatCountMap) {
-      finalPriceMap[category] = {
-        price: Number(priceMap[category]),
-        totalSeats: seatCountMap[category],
-        availableSeats: seatCountMap[category],
-      };
-    }
-
-    const newShow = await Show.create({
-      movieId,
-      theaterId,
-      screenId,
-      showTime: newShowStart,
-      priceMap: finalPriceMap,
-    });
-
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
-      message: "Show created successfully",
-      data: newShow,
+      message: "Movies fetched successfully",
+      data: movies,
     });
   } catch (err) {
-    console.error("Theater Admin Create Show Error:", err);
+    console.error("Theater Admin Get Movies Error:", err);
 
     return res.status(500).json({
       success: false,
-      message: err.message || "Failed to create show",
+      message: err.message || "Failed to fetch movies",
     });
   }
 });
+
+
 /**
  * POST /theater-admin/shows
  * Theater Admin: create a show for his own theater
