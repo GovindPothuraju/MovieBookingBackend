@@ -9,9 +9,6 @@ const cookieParser = require("cookie-parser");
 app.set("trust proxy", 1);
 
 const connectDB = require("./config/databse");
-
-
-
 // Redis Import from config-redis
 const  redisClient  = require("./config/redis");
 
@@ -108,6 +105,8 @@ app.get("/healthz", (req, res) => {
     message: "Server is running smoothly",
   });
 });
+
+
 
 
 // Redis server start
