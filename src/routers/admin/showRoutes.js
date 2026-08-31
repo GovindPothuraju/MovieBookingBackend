@@ -2,6 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const showRouter = express.Router();
 
+const redisClient = require("../../config/redis");
+
 
 const Movie = require('../../models/admin/movieModel');
 const Show = require('../../models/admin/showModel');
@@ -42,6 +44,24 @@ const getShowStatus = (show) => {
   return "COMPLETED";
 };
 
+const deleteShowCaches = async () => {
+  try {
+    const keys = [];
+
+    for await (const key of redisClient.scanIterator({
+      MATCH: "admin:shows:*",
+      COUNT: 100,
+    })) {
+      keys.push(key);
+    }
+
+    if (keys.length > 0) {
+      await redisClient.del(keys);
+    }
+  } catch (err) {
+    console.error("Redis cache delete error:", err.message);
+  }
+};
 
 /**
  * POST /shows
@@ -255,20 +275,22 @@ showRouter.post("/shows", adminAuth, async (req, res) => {
       };
 
     }
-
+    
     // 11. Create show
     const newShow = await Show.create({
       ...value,
       priceMap,
     });
-
-    // 12. Response
+    // 12 delete from redis
+    await deleteShowCaches();
+    // 13. Response
     return res.status(201).json({
       success: true,
       message: "Show created successfully",
       data: newShow,
     });
 
+    
   } catch (err) {
     console.error("Create show error:", err);
 
@@ -286,7 +308,6 @@ showRouter.post("/shows", adminAuth, async (req, res) => {
  */
 showRouter.get("/shows/:id", adminAuth, async (req, res) => {
   try {
-    // 1. Validate show ID
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -296,13 +317,32 @@ showRouter.get("/shows/:id", adminAuth, async (req, res) => {
       });
     }
 
-    // 2. Fetch show with related details
-    const show = await Show.findById(id)
-      .populate("movieId", "title duration posterUrl releaseDate status")
-      .populate("theaterId", "name city")
-      .populate("screenId", "name screenType totalSeats");
+    const cacheKey = `admin:shows:${id}`;
 
-    // 3. Show not found
+    try {
+      const cachedData = await redisClient.get(cacheKey);
+
+      if (cachedData) {
+        return res.status(200).json(JSON.parse(cachedData));
+      }
+    } catch (redisErr) {
+      console.error("Redis GET Error:", redisErr.message);
+    }
+
+    const show = await Show.findById(id)
+      .populate(
+        "movieId",
+        "title duration posterUrl releaseDate status"
+      )
+      .populate(
+        "theaterId",
+        "name city"
+      )
+      .populate(
+        "screenId",
+        "name screenType totalSeats"
+      );
+
     if (!show) {
       return res.status(404).json({
         success: false,
@@ -310,16 +350,28 @@ showRouter.get("/shows/:id", adminAuth, async (req, res) => {
       });
     }
 
-    // 4. Compute current status
     const computedStatus = getShowStatus(show);
 
-    // 5. Response
-    return res.status(200).json({
+    const showObj = show.toObject();
+    showObj.status = computedStatus;
+
+    const response = {
       success: true,
       message: "Show details fetched successfully",
-      data: show,
-    });
+      data: showObj,
+    };
 
+    try {
+      await redisClient.setEx(
+        cacheKey,
+        300,
+        JSON.stringify(response)
+      );
+    } catch (redisErr) {
+      console.error("Redis SET Error:", redisErr.message);
+    }
+
+    return res.status(200).json(response);
   } catch (err) {
     console.error("Get show error:", err);
 
@@ -466,7 +518,10 @@ showRouter.patch("/shows/:id", adminAuth, async (req, res) => {
     // 7. Save
     await show.save();
 
-    // 8. Response
+    // 8. delete from redis
+    await deleteShowCaches();
+
+    // 9. Response
     const showObj = show.toObject();
     showObj.status = getShowStatus(show);
 
@@ -504,6 +559,18 @@ showRouter.get("/shows", adminAuth, async (req, res) => {
 
     page = Math.max(1, parseInt(page) || 1);
     limit = Math.min(50, Math.max(1, parseInt(limit) || 10));
+
+    const cacheKey = `admin:shows:list:${JSON.stringify(req.query)}`;
+
+    try {
+      const cachedData = await redisClient.get(cacheKey);
+
+      if (cachedData) {
+        return res.status(200).json(JSON.parse(cachedData));
+      }
+    } catch (redisErr) {
+      console.error("Redis GET Error:", redisErr.message);
+    }
 
     const filter = {};
 
@@ -573,7 +640,6 @@ showRouter.get("/shows", adminAuth, async (req, res) => {
       });
     }
 
-    // Fetch all matching shows except status
     const shows = await Show.find(filter)
       .populate(
         "movieId",
@@ -591,20 +657,17 @@ showRouter.get("/shows", adminAuth, async (req, res) => {
       .select("-__v")
       .lean();
 
-    // Compute dynamic status
     let updatedShows = shows.map((show) => ({
       ...show,
       status: getShowStatus(show),
     }));
 
-    // Apply status filter AFTER computing status
     if (status) {
       updatedShows = updatedShows.filter(
         (show) => show.status === status
       );
     }
 
-    // Pagination AFTER filtering
     const totalShows = updatedShows.length;
     const totalPages = Math.ceil(totalShows / limit);
     const skip = (page - 1) * limit;
@@ -614,7 +677,7 @@ showRouter.get("/shows", adminAuth, async (req, res) => {
       skip + limit
     );
 
-    return res.status(200).json({
+    const response = {
       success: true,
       message: "Shows retrieved successfully",
       data: paginatedShows,
@@ -626,8 +689,19 @@ showRouter.get("/shows", adminAuth, async (req, res) => {
         hasNextPage: page < totalPages,
         hasPrevPage: page > 1,
       },
-    });
+    };
 
+    try {
+      await redisClient.setEx(
+        cacheKey,
+        300,
+        JSON.stringify(response)
+      );
+    } catch (redisErr) {
+      console.error("Redis SET Error:", redisErr.message);
+    }
+
+    return res.status(200).json(response);
   } catch (err) {
     console.error("Get shows error:", err);
 
@@ -701,7 +775,10 @@ showRouter.patch("/shows/:id/status", adminAuth, async (req, res) => {
     show.status = "CANCELLED";
     await show.save();
 
-    // 7. Response
+    // 7. delete from redis
+    await deleteShowCaches();
+
+    // 8. Response
     return res.status(200).json({
       success: true,
       message: "Show cancelled successfully",
