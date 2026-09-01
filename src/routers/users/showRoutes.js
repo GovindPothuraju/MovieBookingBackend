@@ -14,7 +14,7 @@ const { userAuth } = require('../../middleware/userAuth');
  * GET /movies/shows/:slug/:date
  * User: get shows for a movie on a specific date
  */
-showRoutes.get("/movies/shows/:slug/:date", userAuth, async (req, res) => {
+showRoutes.get("/movies/shows/:slug/:date", async (req, res) => {
   try {
     const { slug, date } = req.params;
 
@@ -83,7 +83,7 @@ showRoutes.get("/movies/shows/:slug/:date", userAuth, async (req, res) => {
  * GET /shows/:showId/seats
  * User: get seat availability for a show
  */
-showRoutes.get("/shows/:showId/seats", userAuth, async (req, res) => {
+showRoutes.get("/shows/:showId/seats", async (req, res) => {
   try {
 
     const { showId } = req.params;
@@ -151,8 +151,7 @@ showRoutes.get("/shows/:showId/seats", userAuth, async (req, res) => {
  * DELETE /shows/:showId/seats/lock
  * User: release their seat locks
  */
-showRoutes.delete(
-  "/shows/:showId/seats/lock",
+showRoutes.delete("/shows/:showId/seats/lock",
   userAuth,
   async (req, res) => {
     try {
