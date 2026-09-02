@@ -99,15 +99,17 @@ app.use("/api",seatRouter);
 app.use("/api",showRouter)
 
 // Health check
-app.get("/healthz", (req, res) => {
+app.get("/health", (req, res) => {
   res.status(200).json({
-    status: "OK",
-    message: "Server is running smoothly",
+    success: true,
+    message: "Server is healthy",
+    server: process.env.PORT || 5000,
+    timestamp: new Date().toISOString(),
   });
 });
 
 
-
+let server;
 
 // Redis server start
 // Connect MongoDB
@@ -115,17 +117,18 @@ app.get("/healthz", (req, res) => {
 // Connect Redis
 //         ↓
 // Start Express Server
+
 const startServer = async () => {
   try {
     await connectDB();
     console.log("Database Connected");
 
     await redisClient.connect();
-    console.log(" Redis Connected");
+    console.log("Redis Connected");
 
     const port = process.env.PORT || 5000;
 
-    app.listen(port, () => {
+    server = app.listen(port, () => {
       console.log(`Server running on port ${port}`);
     });
 
@@ -134,5 +137,32 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+
+const shutdown = async (signal) => {
+  console.log(`${signal} received. Shutting down...`);
+
+  if (server) {
+    server.close(async () => {
+      console.log("HTTP server closed");
+
+      try {
+        if (redisClient.isOpen) {
+          await redisClient.quit();
+          console.log("Redis connection closed");
+        }
+
+        process.exit(0);
+      } catch (error) {
+        console.error("Shutdown error:", error);
+        process.exit(1);
+      }
+    });
+  } else {
+    process.exit(0);
+  }
+};
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 
 startServer();
